@@ -55,6 +55,7 @@
       <details class="sub">
         <summary>+ Generate from prompt</summary>
         <textarea id="moodPrompt" rows="3" class="field" placeholder="e.g. horror heartbeat, deep red, slow pulse"></textarea>
+        <button id="suggestVibeBtn" class="btn2">SUGGEST VIBE FROM AUDIO</button>
         <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:10px;color:var(--ui-dim);cursor:pointer">
           <input type="checkbox" id="quickMode" style="width:auto;margin:0" />
           QUICK MODE — single-stage, no brief, ~3-4× faster
@@ -78,7 +79,6 @@
     <section class="sec">
       <div class="seclabel">AUDIO</div>
       <input type="file" id="audioFile" class="field" accept="audio/*,video/mp4,video/quicktime,video/webm,video/*" />
-      <button id="suggestVibeBtn" class="btn2">SUGGEST VIBE FROM AUDIO</button>
 
       <details class="sub">
         <summary>+ Manual lyrics JSON</summary>
