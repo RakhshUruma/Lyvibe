@@ -59,8 +59,10 @@ export class LineRenderer {
     const chars = visible;     // used below for typewriter timing
 
     // === append BEFORE positioning so we can measure actual width ====
-    // .line opacity:0 by default → no flash while we're still positioning.
     this.layer.appendChild(line);
+    // Force layout pass so offsetWidth reflects actual rendering.
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    line.offsetHeight;
     const measuredVw = (line.offsetWidth / Math.max(1, window.innerWidth)) * 100;
 
     // === position resolution =========================================
@@ -69,8 +71,14 @@ export class LineRenderer {
     const y     = seg.anchorY ?? rand.y;
     let x = baseX;
     if (seg.anchorX == null) {
-      const halfVw = measuredVw / 2;
-      const margin = 2;
+      // The layout box (offsetWidth) doesn't include text-shadow blur,
+      // rgb-split overflow, drop-shadow filter, scale animations, or tilt
+      // diagonal extension. Be GENEROUS — 8vw of safety per side covers
+      // every preset's glow and the rave storm's 60px-blur shadows on a
+      // 1920px viewport.
+      const safetyVw = 8;
+      const halfVw = (measuredVw / 2) + safetyVw;
+      const margin = 0;
       const minX = halfVw + margin;
       const maxX = 100 - halfVw - margin;
       x = (minX < maxX) ? Math.max(minX, Math.min(maxX, baseX)) : 50;

@@ -28,6 +28,10 @@ const SVG_NS = "http://www.w3.org/2000/svg";
 const rand = (a: number, b: number) => a + Math.random() * (b - a);
 
 const createShape = (el: SceneElement, sizePx: number): HTMLElement => {
+  // Two-layer composition: <wrap> handles position (engine writes transform),
+  // <inner> handles selfAnim transform. Without an inner element the engine's
+  // setProperty would clash with the per-instance flap/breath animation, AND
+  // applying selfAnim to a text-node wrap fails ("style of undefined").
   const wrap = document.createElement("div");
   wrap.style.position = "absolute";
   wrap.style.willChange = "transform";
@@ -36,15 +40,24 @@ const createShape = (el: SceneElement, sizePx: number): HTMLElement => {
   wrap.style.width  = `${sizePx}px`;
   wrap.style.height = `${sizePx}px`;
   wrap.style.pointerEvents = "none";
+
   if (el.shape === "emoji") {
-    wrap.textContent = el.emoji ?? "✨";
-    wrap.style.fontSize = `${sizePx}px`;
-    wrap.style.lineHeight = "1";
+    const inner = document.createElement("span");
+    inner.textContent = el.emoji ?? "✨";
+    inner.style.display = "block";
+    inner.style.fontSize = `${sizePx}px`;
+    inner.style.lineHeight = "1";
+    inner.style.willChange = "transform";
+    inner.style.transformOrigin = "center center";
+    wrap.appendChild(inner);
   } else {
     const svg = document.createElementNS(SVG_NS, "svg");
     svg.setAttribute("viewBox", el.svgViewBox || "0 0 40 40");
     svg.setAttribute("width",  String(sizePx));
     svg.setAttribute("height", String(sizePx));
+    (svg as unknown as HTMLElement).style.display = "block";
+    (svg as unknown as HTMLElement).style.willChange = "transform";
+    (svg as unknown as HTMLElement).style.transformOrigin = "center center";
     const path = document.createElementNS(SVG_NS, "path");
     path.setAttribute("d", el.svgPath || "M2,20 Q20,2 38,20 Q20,38 2,20 Z");
     path.setAttribute("fill", el.fill || "currentColor");
@@ -55,15 +68,14 @@ const createShape = (el: SceneElement, sizePx: number): HTMLElement => {
 };
 
 const applySelfAnim = (dom: HTMLElement, sa: SelfAnim, seed: number): void => {
-  // Use a unique CSS animation name per call so multiple instances can have
-  // independent phase via animation-delay.
   const name = `vjSelf_${sa.property}_${Math.round(sa.range[0]*100)}_${Math.round(sa.range[1]*100)}_${sa.periodMs}`;
   ensureSelfAnimKf(name, sa);
-  const inner = dom.firstChild as HTMLElement;
+  const inner = dom.firstElementChild as (HTMLElement | SVGElement | null);
   if (!inner) return;
-  inner.style.animation = `${name} ${sa.periodMs}ms ${sa.easing || "ease-in-out"} infinite`;
-  inner.style.animationDelay = `-${(seed * sa.periodMs).toFixed(0)}ms`;
-  inner.style.transformOrigin = "center center";
+  const style = (inner as unknown as { style?: CSSStyleDeclaration }).style;
+  if (!style) return;
+  style.animation = `${name} ${sa.periodMs}ms ${sa.easing || "ease-in-out"} infinite`;
+  style.animationDelay = `-${(seed * sa.periodMs).toFixed(0)}ms`;
 };
 
 const _selfAnimSeen = new Set<string>();
