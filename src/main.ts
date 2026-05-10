@@ -286,6 +286,10 @@ function presetToBgMode(key: string): BgMode {
        : key === "zen"     ? "vortex"
        : key === "mono"    ? "stripes"
        : key === "vhs"     ? "noise"
+       : key === "aurora"  ? "particles"
+       : key === "forest"  ? "particles"
+       : key === "flame"   ? "rays"
+       : key === "aqua"    ? "vortex"
        : "noise";
 }
 

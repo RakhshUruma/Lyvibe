@@ -240,6 +240,99 @@ export const PRESETS: Record<string, Mood> = {
     ],
   }),
 
+  aurora: base({
+    bg: "#020822", accent: "#7affc1", hot: "#9d6bff", cool: "#3affff",
+    rgbSplit: 2, blur: 0.4, glitchRate: 0, ghostRate: 0.5, motionRate: 0.7, bgSwapRate: 0.4,
+    tilt: 2, positionMode: "scatter", color: "#e8fff5", weight: 400, font: "Georgia, serif",
+    useTypewriter: true,
+    entryKeyframes: k("fade", "slideUp", "emerge"),
+    motionKeyframes: m("breathe", "drift", "sway"),
+    bgKeyframes: bg("drift", "pulse"),
+    bgCssVariants: [
+      "background: linear-gradient(180deg, #020822 0%, #082040 60%, #020822 100%); background-size: 200% 200%; animation: vjBgDrift 20s ease-in-out infinite alternate;",
+      "background: radial-gradient(ellipse at 50% 110%, #1a4a78 0%, #082040 35%, #020822 75%); animation: vjBgPulse 6s ease-in-out infinite;",
+      "background: linear-gradient(135deg, #082040 0%, #1a3050 50%, #020822 100%); background-size: 300% 300%; animation: vjBgDrift 14s ease-in-out infinite alternate;",
+    ],
+    sceneElements: [{
+      shape: "emoji", emoji: "✨",
+      sizeRange: [12, 22], count: 30, spawnRate: 0.6,
+      motion: { type: "rise", durationRange: [10, 18], sineAmplitude: 18, sinePeriod: 3000 },
+      selfAnim: { property: "scale", range: [0.55, 1.0], periodMs: 2200 },
+      opacityRange: [0.4, 0.9], blendMode: "screen",
+    }],
+  }),
+
+  forest: base({
+    bg: "#0a1812", accent: "#9ad28f", hot: "#d4a16f", cool: "#7fb59f",
+    rgbSplit: 1, blur: 0.3, glitchRate: 0, ghostRate: 0.3, motionRate: 0.7, bgSwapRate: 0.3,
+    tilt: 3, positionMode: "scatter", color: "#e8f0e0", weight: 400, font: "Georgia, serif",
+    useTypewriter: true,
+    entryKeyframes: k("fade", "slideUp", "emerge"),
+    motionKeyframes: m("breathe", "sway", "drift"),
+    bgKeyframes: bg("drift", "pulse"),
+    bgCssVariants: [
+      "background: radial-gradient(ellipse at 30% 30%, #1a3025 0%, #0a1812 70%); background-size: 200% 200%; animation: vjBgDrift 18s ease-in-out infinite alternate;",
+      "background: linear-gradient(170deg, #0e2018 0%, #0a1812 60%, #050a08 100%); animation: vjBgPulse 6s ease-in-out infinite;",
+    ],
+    sceneElements: [{
+      shape: "svg",
+      svgPath: "M4,20 C12,4 28,4 36,20 C28,36 12,36 4,20 Z",
+      svgViewBox: "0 0 40 40",
+      fill: "#c4d49a",
+      sizeRange: [22, 40], count: 14, spawnRate: 0.8,
+      motion: { type: "rain", durationRange: [9, 15], sineAmplitude: 60, sinePeriod: 2400, rotateMode: "spin" },
+      opacityRange: [0.55, 0.9], blendMode: "screen",
+    }],
+  }),
+
+  flame: base({
+    bg: "#0a0200", accent: "#ff7f30", hot: "#ffd23f", cool: "#ff3030",
+    rgbSplit: 4, blur: 0.5, glitchRate: 0.18, ghostRate: 0.55, motionRate: 0.85, bgSwapRate: 0.5,
+    tilt: 5, positionMode: "scatter", color: "#fff5e0", weight: 900, font: "Impact, sans-serif",
+    entryKeyframes: k("popIn", "drop", "slam", "emerge"),
+    motionKeyframes: m("heartbeat", "pulseGlow", "sway"),
+    bgKeyframes: bg("pulse", "drift"),
+    bgCssVariants: [
+      "background: radial-gradient(ellipse at 50% 110%, #ff6020 0%, #401000 30%, #0a0200 70%); animation: vjBgPulse 1.6s ease-in-out infinite;",
+      "background: linear-gradient(0deg, #ff3030 0%, #401000 35%, #0a0200 75%); background-size: 200% 200%; animation: vjBgDrift 4s ease-in-out infinite alternate, vjBgPulse 2s ease-in-out infinite;",
+      "background: radial-gradient(circle at 50% 100%, rgba(255,127,48,0.5), transparent 50%), #0a0200; animation: vjBgPulse 1.2s ease-in-out infinite;",
+    ],
+    sceneElements: [{
+      shape: "emoji", emoji: "🔥",
+      sizeRange: [40, 80], count: 14, spawnRate: 2.5,
+      motion: { type: "rise", durationRange: [2.5, 4], sineAmplitude: 18, sinePeriod: 600 },
+      selfAnim: { property: "scale", range: [0.7, 1.25], periodMs: 380 },
+      opacityRange: [0.7, 1.0], blendMode: "screen",
+    }, {
+      shape: "emoji", emoji: "✨",
+      sizeRange: [14, 26], count: 30, spawnRate: 4,
+      motion: { type: "rise", durationRange: [1.6, 3], sineAmplitude: 30, sinePeriod: 800 },
+      opacityRange: [0.5, 0.95], blendMode: "screen",
+    }],
+  }),
+
+  aqua: base({
+    bg: "#021022", accent: "#5fd0ff", hot: "#a0f0ff", cool: "#3088c0",
+    rgbSplit: 2, blur: 0.4, glitchRate: 0, ghostRate: 0.45, motionRate: 0.8, bgSwapRate: 0.4,
+    tilt: 2, positionMode: "scatter", color: "#e8f8ff", weight: 400, font: "Georgia, serif",
+    useTypewriter: true,
+    entryKeyframes: k("fade", "slideUp", "emerge"),
+    motionKeyframes: m("breathe", "drift", "sway"),
+    bgKeyframes: bg("pulse", "drift"),
+    bgCssVariants: [
+      "background: radial-gradient(ellipse at 50% 30%, #1a5080 0%, #021022 70%); background-size: 180% 180%; animation: vjBgDrift 16s ease-in-out infinite alternate, vjBgPulse 5s ease-in-out infinite;",
+      "background: linear-gradient(180deg, #1a4070 0%, #021022 70%, #000810 100%); animation: vjBgPulse 4s ease-in-out infinite;",
+      "background: radial-gradient(circle at 30% 20%, #3088c0 0%, #021022 60%); animation: vjBgPulse 5s ease-in-out infinite;",
+    ],
+    sceneElements: [{
+      shape: "emoji", emoji: "🫧",
+      sizeRange: [18, 44], count: 18, spawnRate: 1.2,
+      motion: { type: "rise", durationRange: [6, 11], sineAmplitude: 30, sinePeriod: 2200 },
+      selfAnim: { property: "scale", range: [0.85, 1.05], periodMs: 1800 },
+      opacityRange: [0.5, 0.85],
+    }],
+  }),
+
   chaos: base({
     bg: "#000", accent: "#00ff00", hot: "#ff00ff", cool: "#00ffff",
     rgbSplit: 6, blur: 0.5, glitchRate: 0.45, ghostRate: 0.7, motionRate: 0.8, bgSwapRate: 0.6,

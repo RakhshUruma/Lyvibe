@@ -44,6 +44,10 @@ export class CanvasBg {
     const ctx = this.ctx;
     ctx.fillStyle = bg; ctx.fillRect(0, 0, w, h);
 
+    // Floating coloured orbs — soft ambient light layer that lives under
+    // every mode. Reproduces the look of the original prototype's bg.
+    this.drawOrbs(w, h, bass);
+
     switch (this.mode) {
       case "grid":      this.drawGrid(w, h, accent, bass); break;
       case "particles": this.drawParticles(w, h, accent); break;
@@ -52,6 +56,38 @@ export class CanvasBg {
       case "stripes":   this.drawStripes(w, h, accent); break;
       case "noise":     this.drawNoise(w, h); break;
     }
+  }
+
+  private orbs: { x: number; y: number; vx: number; vy: number; r: number; hue: number }[] = [];
+  private drawOrbs(w: number, h: number, bass: number): void {
+    if (this.orbs.length === 0) {
+      for (let i = 0; i < 5; i++) {
+        this.orbs.push({
+          x: Math.random(), y: Math.random(),
+          vx: (Math.random() - 0.5) * 0.00025,
+          vy: (Math.random() - 0.5) * 0.00025,
+          r: 110 + Math.random() * 200,
+          hue: Math.random() * 360,
+        });
+      }
+    }
+    const ctx = this.ctx;
+    ctx.globalCompositeOperation = "lighter";
+    for (const o of this.orbs) {
+      o.x += o.vx; o.y += o.vy;
+      if (o.x < -0.2) o.x = 1.2; if (o.x > 1.2) o.x = -0.2;
+      if (o.y < -0.2) o.y = 1.2; if (o.y > 1.2) o.y = -0.2;
+      const cx = o.x * w, cy = o.y * h;
+      const radius = o.r * (1 + bass * 0.35);
+      const g = ctx.createRadialGradient(cx, cy, 0, cx, cy, radius);
+      g.addColorStop(0, `hsla(${o.hue}, 100%, 60%, ${0.20 + bass * 0.18})`);
+      g.addColorStop(1, "hsla(0, 0%, 0%, 0)");
+      ctx.fillStyle = g;
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, 0, Math.PI * 2);
+      ctx.fill();
+    }
+    ctx.globalCompositeOperation = "source-over";
   }
 
   private drawGrid(w: number, h: number, c: string, bass: number): void {
