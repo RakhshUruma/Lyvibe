@@ -95,7 +95,11 @@ export const normalizeMood = (raw: any): Mood => {
     entryKeyframes: entry,
     motionKeyframes: motion,
     bgKeyframes:    bgKf,
-    useTypewriter:  raw?.useTypewriter !== false,
+    // typewriter is forced ON for every generated/applied mood. If the user
+    // really wants block reveal, they can hand-edit the pasted JSON to false
+    // (still respected here only when the mood comes from PRESETS directly,
+    // bypassing this normalizer).
+    useTypewriter:  true,
     typewriter:     normTypewriter(raw?.typewriter),
     sceneElements:  Array.isArray(raw?.sceneElements)
       ? raw.sceneElements.map(normSceneElement).filter(Boolean) as SceneElement[]

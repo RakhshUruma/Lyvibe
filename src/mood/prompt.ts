@@ -50,7 +50,7 @@ Given a vibe description, return ONE JSON object describing a "mood".
   "bgKeyframes": [              // 1..3 entries; animations the BACKGROUND uses
     { "name": "...", "css": "0%{...}...100%{...}", "duration": "...", "easing": "...", "iteration": "infinite" }
   ],
-  "useTypewriter": boolean,     // true (DEFAULT, recommended for most vibes) = chars appear one-by-one. false = whole line as a block.
+  "useTypewriter": true,        // ALWAYS true. The visualizer always reveals chars one-by-one; you control the FEEL via "typewriter.reveal".
   "typewriter": {               // when useTypewriter=true, controls per-char reveal
     "stagger": 0.02..0.15,      // sec between chars. fast(0.02-0.04 for cyber/rave/vhs), slow(0.06-0.10 for ambient)
     "charDuration": "0.15s"..."0.8s",
