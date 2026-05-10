@@ -93,6 +93,52 @@ const tryEachSource = async <T>(
   throw new Error(errors.join(" | ") || "all sources failed");
 };
 
+/** QUICK-mode source order: gemini → anthropic → relay (fastest first). */
+const tryQuickSources = async <T>(
+  status: StatusReport,
+  errors: string[],
+  opts: GenerateOptions,
+  fns: { gemini?: () => Promise<T>; anthropic?: () => Promise<T>; relay?: () => Promise<T>; },
+): Promise<{ value: T; source: "anthropic" | "relay" | "gemini" }> => {
+  if (env.geminiMood.key && fns.gemini) {
+    status.gemini = "busy"; opts.onStatus?.(status);
+    try {
+      const v = await fns.gemini();
+      status.gemini = "ok"; status.source = "gemini";
+      opts.onStatus?.(status);
+      return { value: v, source: "gemini" };
+    } catch (e) {
+      status.gemini = "err"; noteErr(errors, "gemini", e);
+      opts.onStatus?.(status);
+    }
+  }
+  if (env.anthropic.key && fns.anthropic) {
+    status.anthropic = "busy"; opts.onStatus?.(status);
+    try {
+      const v = await fns.anthropic();
+      status.anthropic = "ok"; status.source = "anthropic";
+      opts.onStatus?.(status);
+      return { value: v, source: "anthropic" };
+    } catch (e) {
+      status.anthropic = "err"; noteErr(errors, "anthropic", e);
+      opts.onStatus?.(status);
+    }
+  }
+  if (fns.relay) {
+    status.relay = "busy"; opts.onStatus?.(status);
+    try {
+      const v = await fns.relay();
+      status.relay = "ok"; status.source = "relay";
+      opts.onStatus?.(status);
+      return { value: v, source: "relay" };
+    } catch (e) {
+      status.relay = "err"; noteErr(errors, "relay", e);
+      opts.onStatus?.(status);
+    }
+  }
+  throw new Error(errors.join(" | ") || "all sources failed");
+};
+
 const extractJson = (s: string): string => {
   const i = s.indexOf("{"), j = s.lastIndexOf("}");
   if (i === -1 || j === -1 || j < i) throw new Error("no JSON object found in response");
@@ -116,20 +162,23 @@ export const generateMood = async (
   const errors: string[] = [];
   const t0 = performance.now();
 
-  // === QUICK mode — skip the brief, single LLM call ===
+  // === QUICK mode — skip the brief, single LLM call.
+  //  Prefer Gemini first because it's the fastest path for a single short
+  //  call (5-8s typical). Anthropic API is next. Relay (claude CLI) is the
+  //  slowest path (20-60s) so it's a last-resort fallback in QUICK. ===
   if (opts.quick) {
     opts.onStage?.("json");
     const userPrompt =
       `vibe: ${vibe.trim()}\n\nReturn the mood JSON now. No brief intermediate. ` +
       `Make sure useTypewriter is true, bgKeyframes are referenced from bgCssVariants, ` +
       `and motionRecipes/entryRecipes are populated where appropriate.`;
-    const jsonRes = await tryEachSource(status, errors, opts, {
-      anthropic: () =>
-        generateTextAnthropic(MOOD_SYSTEM_PROMPT, userPrompt, opts, { maxTokens: 4096, thinking: false }),
-      relay: () =>
-        generateTextRelay(MOOD_SYSTEM_PROMPT, userPrompt, opts.signal),
+    const jsonRes = await tryQuickSources(status, errors, opts, {
       gemini: () =>
         generateMoodJsonGemini(MOOD_SYSTEM_PROMPT, userPrompt),
+      anthropic: () =>
+        generateTextAnthropic(MOOD_SYSTEM_PROMPT, userPrompt, opts, { maxTokens: 2400, thinking: false }),
+      relay: () =>
+        generateTextRelay(MOOD_SYSTEM_PROMPT, userPrompt, opts.signal),
     });
     const raw = extractJson(jsonRes.value);
     const mood = normalizeMood(JSON.parse(raw));
