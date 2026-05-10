@@ -155,18 +155,20 @@ document.getElementById("moodGenBtn")!.addEventListener("click", async () => {
   btn.disabled = true;
   document.body.classList.add("generating");
   emphasizePasteMood(false);
-  setMessage("◐ STAGE 1 / 2 · imagining the scene...", "busy");
+  const quick = (document.getElementById("quickMode") as HTMLInputElement | null)?.checked === true;
+  setMessage(quick ? "◐ QUICK · single-stage generating..." : "◐ STAGE 1 / 2 · imagining the scene...", "busy");
   let capturedBrief = "";
   try {
     const r = await generateMood(vibe, {
+      quick,
       onStatus: setMoodStatus,
       onStage: (s) => {
-        if (s === "brief") setMessage("◐ STAGE 1 / 2 · imagining the scene...", "busy");
-        if (s === "json")  setMessage("◐ STAGE 2 / 2 · turning the brief into CSS...", "busy");
+        if (quick && s === "json") setMessage("◐ QUICK · writing CSS...", "busy");
+        else if (s === "brief") setMessage("◐ STAGE 1 / 2 · imagining the scene...", "busy");
+        else if (s === "json")  setMessage("◐ STAGE 2 / 2 · turning the brief into CSS...", "busy");
       },
       onBrief: (brief) => {
         capturedBrief = brief;
-        // show first ~120 chars of the brief in status to convey "the LLM imagined this"
         const preview = brief.replace(/\s+/g, " ").slice(0, 120);
         setMessage(`◐ STAGE 2 / 2 · brief: "${preview}…"`, "busy");
       },
@@ -346,25 +348,27 @@ document.getElementById("moodLoadCurrentBtn")!.addEventListener("click", () => {
   flash("moodLoadCurrentBtn");
 });
 
-document.getElementById("exportProjectBtn")!.addEventListener("click", () => {
-  const project = {
-    exportedAt: new Date().toISOString(),
-    audioFileName: state.audioFile?.name ?? null,
-    moodKey: state.moodKey,
-    intensity: state.intensity,
-    lyrics: state.lyrics,
-    mood:   state.mood,
-    moodPrompt: localStorage.getItem("vj.lastBrief") ?? "",
-  };
-  const blob = new Blob([JSON.stringify(project, null, 2)], { type: "application/json" });
+const downloadJson = (filename: string, payload: unknown): void => {
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  const stem = (state.audioFile?.name || "vj-project").replace(/\.[^.]+$/, "");
-  a.download = `${stem}.vj-project.json`;
+  a.download = filename;
   a.click();
   URL.revokeObjectURL(a.href);
-  flash("exportProjectBtn");
-  setMessage("✓ project JSON downloaded.", "ok");
+};
+
+document.getElementById("exportMoodBtn")!.addEventListener("click", () => {
+  const stem = (state.audioFile?.name || "mood").replace(/\.[^.]+$/, "");
+  downloadJson(`${stem}.mood.json`, state.mood);
+  flash("exportMoodBtn");
+  setMessage("✓ mood JSON downloaded.", "ok");
+});
+
+document.getElementById("exportLyricsBtn")!.addEventListener("click", () => {
+  const stem = (state.audioFile?.name || "lyrics").replace(/\.[^.]+$/, "");
+  downloadJson(`${stem}.lyrics.json`, state.lyrics);
+  flash("exportLyricsBtn");
+  setMessage("✓ lyrics JSON downloaded.", "ok");
 });
 
 document.getElementById("suggestVibeBtn")!.addEventListener("click", async () => {

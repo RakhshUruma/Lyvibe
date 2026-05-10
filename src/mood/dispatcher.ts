@@ -26,6 +26,9 @@ export type GenerateOptions = MoodGenOptions & {
   onStatus?: (s: StatusReport) => void;
   onStage?:  (s: "brief" | "json") => void;
   onBrief?:  (brief: string) => void;
+  /** When true, skip the brief stage entirely — single LLM call straight
+   *  from vibe to mood JSON. ~3-4× faster, slightly less creative. */
+  quick?: boolean;
 };
 
 export type GenerateResult = {
@@ -112,6 +115,29 @@ export const generateMood = async (
   const status: StatusReport = { anthropic: "?", relay: "?", gemini: "?" };
   const errors: string[] = [];
   const t0 = performance.now();
+
+  // === QUICK mode — skip the brief, single LLM call ===
+  if (opts.quick) {
+    opts.onStage?.("json");
+    const userPrompt =
+      `vibe: ${vibe.trim()}\n\nReturn the mood JSON now. No brief intermediate. ` +
+      `Make sure useTypewriter is true, bgKeyframes are referenced from bgCssVariants, ` +
+      `and motionRecipes/entryRecipes are populated where appropriate.`;
+    const jsonRes = await tryEachSource(status, errors, opts, {
+      anthropic: () =>
+        generateTextAnthropic(MOOD_SYSTEM_PROMPT, userPrompt, opts, { maxTokens: 4096, thinking: false }),
+      relay: () =>
+        generateTextRelay(MOOD_SYSTEM_PROMPT, userPrompt, opts.signal),
+      gemini: () =>
+        generateMoodJsonGemini(MOOD_SYSTEM_PROMPT, userPrompt),
+    });
+    const raw = extractJson(jsonRes.value);
+    const mood = normalizeMood(JSON.parse(raw));
+    status.ms = Math.round(performance.now() - t0);
+    status.source = jsonRes.source;
+    opts.onStatus?.(status);
+    return { mood, raw, brief: "(quick mode — no brief)", status };
+  }
 
   // === Stage 1: brief ===
   opts.onStage?.("brief");

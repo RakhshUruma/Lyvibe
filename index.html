@@ -55,6 +55,10 @@
       <details class="sub">
         <summary>+ Generate from prompt</summary>
         <textarea id="moodPrompt" rows="3" class="field" placeholder="e.g. horror heartbeat, deep red, slow pulse"></textarea>
+        <label style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:10px;color:var(--ui-dim);cursor:pointer">
+          <input type="checkbox" id="quickMode" style="width:auto;margin:0" />
+          QUICK MODE — single-stage, no brief, ~3-4× faster
+        </label>
         <button id="moodGenBtn" class="btn2">GENERATE</button>
       </details>
 
@@ -63,25 +67,29 @@
         <textarea id="moodJson" rows="4" class="field mono" placeholder='{"bg":"#000","accent":"#0ff",...}'></textarea>
         <div class="row">
           <button id="moodApplyBtn" class="btn2">APPLY JSON</button>
-          <button id="moodLoadCurrentBtn" class="btn2">↺ LOAD CURRENT</button>
+          <button id="moodLoadCurrentBtn" class="btn2">LOAD CURRENT</button>
         </div>
       </details>
+
+      <button id="exportMoodBtn" class="btn2">EXPORT MOOD JSON</button>
     </section>
 
     <!-- AUDIO -->
     <section class="sec">
       <div class="seclabel">AUDIO</div>
       <input type="file" id="audioFile" class="field" accept="audio/*,video/mp4,video/quicktime,video/webm,video/*" />
-      <button id="suggestVibeBtn" class="btn2">🎵 SUGGEST VIBE FROM AUDIO</button>
+      <button id="suggestVibeBtn" class="btn2">SUGGEST VIBE FROM AUDIO</button>
 
       <details class="sub">
         <summary>+ Manual lyrics JSON</summary>
         <textarea id="manualLyrics" rows="4" class="field mono" placeholder='{"segments":[{"start":0,"end":3,"text":"..."}]}'></textarea>
         <div class="row">
           <button id="manualLyricsBtn" class="btn2">APPLY LYRICS</button>
-          <button id="lyricsLoadCurrentBtn" class="btn2">↺ LOAD CURRENT</button>
+          <button id="lyricsLoadCurrentBtn" class="btn2">LOAD CURRENT</button>
         </div>
       </details>
+
+      <button id="exportLyricsBtn" class="btn2">EXPORT LYRICS JSON</button>
     </section>
 
     <!-- STATUS -->
@@ -94,15 +102,12 @@
       </div>
     </section>
 
-    <button id="goBtn" class="cta">▶ &nbsp; TRANSCRIBE &amp; PLAY</button>
+    <button id="goBtn" class="cta">TRANSCRIBE &amp; PLAY</button>
     <label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:10px;color:var(--ui-dim);cursor:pointer">
       <input type="checkbox" id="exportLyricsOnly" style="width:auto;margin:0" />
       LYRICS-ONLY EXPORT (black bg, layer in editor with screen blend)
     </label>
-    <div class="row">
-      <button id="exportBtn" class="btn2">⬇ EXPORT WEBM</button>
-      <button id="exportProjectBtn" class="btn2">⬇ EXPORT PROJECT</button>
-    </div>
+    <button id="exportBtn" class="btn2">EXPORT WEBM</button>
     <div id="statusMsg" class="status-msg">ready.</div>
   </div>
 </aside>
