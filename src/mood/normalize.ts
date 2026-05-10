@@ -95,10 +95,23 @@ export const normalizeMood = (raw: any): Mood => {
     entryKeyframes: entry,
     motionKeyframes: motion,
     bgKeyframes:    bgKf,
-    useTypewriter:  raw?.useTypewriter === true,
+    useTypewriter:  raw?.useTypewriter !== false,
+    typewriter:     normTypewriter(raw?.typewriter),
     sceneElements:  Array.isArray(raw?.sceneElements)
       ? raw.sceneElements.map(normSceneElement).filter(Boolean) as SceneElement[]
       : [],
+  };
+};
+
+const REVEAL_VALID = ["fade","drop","scale","blur","rise","shatter","type"] as const;
+type RevealStyle = typeof REVEAL_VALID[number];
+const normTypewriter = (raw: any): Mood["typewriter"] => {
+  if (!raw || typeof raw !== "object") return { reveal: "rise", stagger: 0.05, charDuration: "0.42s" };
+  const reveal: RevealStyle = (REVEAL_VALID as readonly string[]).includes(raw.reveal) ? raw.reveal : "rise";
+  return {
+    reveal,
+    stagger: typeof raw.stagger === "number" ? Math.max(0.005, Math.min(0.2, raw.stagger)) : 0.05,
+    charDuration: typeof raw.charDuration === "string" ? raw.charDuration : "0.42s",
   };
 };
 

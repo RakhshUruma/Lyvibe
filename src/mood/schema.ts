@@ -50,6 +50,12 @@ export type Mood = {
   /** When true, each character animates in one-by-one (typewriter). When
    *  false, the whole line uses entryKeyframes as a single block. */
   useTypewriter: boolean;
+  /** Typewriter parameters used when useTypewriter=true. */
+  typewriter?: {
+    stagger?: number;        // seconds between char starts (0.02-0.15)
+    charDuration?: string;   // each char's reveal anim length, "0.15s" - "0.8s"
+    reveal?: "fade" | "drop" | "scale" | "blur" | "rise" | "shatter" | "type";
+  };
 
   /** Discrete entities (butterflies, snow, sparks, birds, …) that fly /
    *  fall / orbit on the stage independently of the lyric line.

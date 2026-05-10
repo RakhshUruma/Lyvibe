@@ -73,13 +73,24 @@ export class LineRenderer {
     // entry: typewriter (per-char stagger) OR block (whole-line)
     const entry = pick(this.mood.entryKeyframes);
     if (this.mood.useTypewriter) {
-      ensureTypewriterKf();
-      const stagger = Math.min(0.06, 0.7 / Math.max(1, chars.length));
-      const each    = "0.42s";
-      const lineEls = line.querySelectorAll(".ch");
+      const tw = this.mood.typewriter || {};
+      const reveal = tw.reveal ?? "rise";
+      const kfName = ensureTypewriterKf(reveal);
+      const stagger    = (typeof tw.stagger === "number" && tw.stagger > 0)
+        ? Math.min(0.2, Math.max(0.005, tw.stagger))
+        : Math.min(0.06, 0.7 / Math.max(1, chars.length));
+      const charDur    = tw.charDuration || "0.42s";
+      const easing     = (reveal === "type") ? "steps(2)" : "ease-out";
+      const lineEls    = line.querySelectorAll(".ch");
       lineEls.forEach((el, i) => {
         const e = el as HTMLElement;
-        e.style.animation = `vjChType ${each} ease-out both`;
+        // shatter wants random per-char displacement
+        if (reveal === "shatter") {
+          e.style.setProperty("--rx", `${((Math.random()-0.5) * 60).toFixed(0)}px`);
+          e.style.setProperty("--ry", `${((Math.random()-0.5) * 60).toFixed(0)}px`);
+          e.style.setProperty("--rr", `${((Math.random()-0.5) * 90).toFixed(0)}deg`);
+        }
+        e.style.animation = `${kfName} ${charDur} ${easing} both`;
         e.style.animationDelay = `${(i * stagger).toFixed(3)}s`;
       });
     } else if (entry) {
@@ -165,16 +176,27 @@ const ensureGhostKf = (): void => {
   _ghostKf = true;
 };
 
-let _twKf = false;
-const ensureTypewriterKf = (): void => {
-  if (_twKf) return;
+/** Per-char reveal keyframes. Kept tiny so they compose well with line-level
+ *  motion. The "shatter" variant reads --rx/--ry/--rr from each .ch (set
+ *  inline at line build time) for randomised origin. */
+const REVEAL_KFS: Record<string, string> = {
+  fade:    "0%{opacity:0}100%{opacity:1}",
+  drop:    "0%{opacity:0;transform:translateY(-0.6em)}100%{opacity:1;transform:translateY(0)}",
+  scale:   "0%{opacity:0;transform:scale(0.0)}60%{opacity:1;transform:scale(1.08)}100%{opacity:1;transform:scale(1)}",
+  blur:    "0%{opacity:0;filter:blur(8px) brightness(0.4)}100%{opacity:1;filter:blur(0) brightness(1)}",
+  rise:    "0%{opacity:0;transform:translateY(0.25em) scale(0.7);filter:blur(4px)}60%{opacity:1;transform:translateY(0) scale(1.05);filter:blur(0)}100%{opacity:1;transform:translateY(0) scale(1);filter:blur(0)}",
+  shatter: "0%{opacity:0;transform:translate(var(--rx,0px),var(--ry,0px)) rotate(var(--rr,0deg)) scale(0.5);filter:blur(4px)}100%{opacity:1;transform:translate(0,0) rotate(0) scale(1);filter:blur(0)}",
+  type:    "0%,49%{opacity:0}50%,100%{opacity:1}",
+};
+
+const _twSeen = new Set<string>();
+const ensureTypewriterKf = (variant = "rise"): string => {
+  const v = REVEAL_KFS[variant] ? variant : "rise";
+  const name = `vjReveal_${v}`;
+  if (_twSeen.has(name)) return name;
   const s = document.createElement("style");
-  s.textContent =
-    "@keyframes vjChType { " +
-      "0%   { opacity: 0; transform: translateY(0.2em) scale(0.75); filter: blur(4px); } " +
-      "60%  { opacity: 1; transform: translateY(0)      scale(1.04); filter: blur(0); } " +
-      "100% { opacity: 1; transform: translateY(0)      scale(1);    filter: blur(0); } " +
-    "}";
+  s.textContent = `@keyframes ${name} { ${REVEAL_KFS[v]} }`;
   document.head.appendChild(s);
-  _twKf = true;
+  _twSeen.add(name);
+  return name;
 };

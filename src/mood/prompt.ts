@@ -50,7 +50,19 @@ Given a vibe description, return ONE JSON object describing a "mood".
   "bgKeyframes": [              // 1..3 entries; animations the BACKGROUND uses
     { "name": "...", "css": "0%{...}...100%{...}", "duration": "...", "easing": "...", "iteration": "infinite" }
   ],
-  "useTypewriter": boolean,     // true = each character pops in one-by-one (stagger). false = whole line uses entryKeyframes
+  "useTypewriter": boolean,     // true (DEFAULT, recommended for most vibes) = chars appear one-by-one. false = whole line as a block.
+  "typewriter": {               // when useTypewriter=true, controls per-char reveal
+    "stagger": 0.02..0.15,      // sec between chars. fast(0.02-0.04 for cyber/rave/vhs), slow(0.06-0.10 for ambient)
+    "charDuration": "0.15s"..."0.8s",
+    "reveal": "fade"|"drop"|"scale"|"blur"|"rise"|"shatter"|"type"
+    // fade: pure opacity (zen, folk, classy)
+    // drop: from above (drama, narrative)
+    // scale: 0→1 pop (rave, cyber, neon, flame)
+    // blur: out-of-focus → focus (dream, aurora, aqua)
+    // rise: from below + blur (default — versatile)
+    // shatter: random scatter assemble (chaos, horror, glitch)
+    // type: instant per-char reveal mimicking a typewriter (mono, vhs, retro)
+  },
   "sceneElements": [            // 0..6 entries — see "Scene elements" section below. EMPTY array if vibe is purely abstract.
     {
       "shape": "svg" | "emoji",
