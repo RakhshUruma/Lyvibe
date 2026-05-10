@@ -55,15 +55,27 @@ const createShape = (el: SceneElement, sizePx: number): HTMLElement => {
     svg.setAttribute("viewBox", el.svgViewBox || "0 0 40 40");
     svg.setAttribute("width",  String(sizePx));
     svg.setAttribute("height", String(sizePx));
+    svg.setAttribute("overflow", "visible"); // let stroke + glow extend past viewBox
     (svg as unknown as HTMLElement).style.display = "block";
     (svg as unknown as HTMLElement).style.willChange = "transform";
     (svg as unknown as HTMLElement).style.transformOrigin = "center center";
     const path = document.createElementNS(SVG_NS, "path");
     path.setAttribute("d", el.svgPath || "M2,20 Q20,2 38,20 Q20,38 2,20 Z");
-    path.setAttribute("fill", el.fill || "currentColor");
+    if (el.strokeOnly) {
+      path.setAttribute("fill", "none");
+    } else {
+      path.setAttribute("fill", el.fill || "currentColor");
+    }
+    if (el.stroke) {
+      path.setAttribute("stroke", el.stroke);
+      path.setAttribute("stroke-width", String(el.strokeWidth ?? 2));
+      path.setAttribute("stroke-linecap", "round");
+      path.setAttribute("stroke-linejoin", "round");
+    }
     svg.appendChild(path);
     wrap.appendChild(svg);
   }
+  if (el.filter) wrap.style.filter = el.filter;
   return wrap;
 };
 

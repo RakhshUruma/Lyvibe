@@ -37,7 +37,15 @@ export type SceneElement = {
   svgPath?: string;
   svgViewBox?: string;
   emoji?: string;
+  /** Filled fill color (or "none"). Ignored if strokeOnly. */
   fill?: string;
+  /** SVG stroke color. When set with strokeOnly:true, the path is drawn as
+   *  a curve / line (no interior fill). Use this for ribbons / glow lines. */
+  stroke?: string;
+  strokeWidth?: number;
+  strokeOnly?: boolean;
+  /** Optional CSS filter string applied to the wrap (drop-shadow, blur). */
+  filter?: string;
   /** Element size in px, [min, max]. */
   sizeRange: [number, number];
   /** Maximum simultaneous instances. */
