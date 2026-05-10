@@ -71,7 +71,7 @@
     <!-- AUDIO -->
     <section class="sec">
       <div class="seclabel">AUDIO</div>
-      <input type="file" id="audioFile" class="field" accept="audio/*" />
+      <input type="file" id="audioFile" class="field" accept="audio/*,video/mp4,video/quicktime,video/webm,video/*" />
 
       <details class="sub">
         <summary>+ Manual lyrics JSON</summary>
@@ -94,14 +94,14 @@
     </section>
 
     <button id="goBtn" class="cta">▶ &nbsp; TRANSCRIBE &amp; PLAY</button>
+    <label style="display:flex;align-items:center;gap:6px;margin-top:10px;font-size:10px;color:var(--ui-dim);cursor:pointer">
+      <input type="checkbox" id="exportLyricsOnly" style="width:auto;margin:0" />
+      LYRICS-ONLY EXPORT (black bg, layer in editor with screen blend)
+    </label>
     <div class="row">
       <button id="exportBtn" class="btn2">⬇ EXPORT WEBM</button>
       <button id="exportProjectBtn" class="btn2">⬇ EXPORT PROJECT</button>
     </div>
-    <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:10px;color:var(--ui-dim);cursor:pointer">
-      <input type="checkbox" id="exportLyricsOnly" style="width:auto;margin:0" />
-      LYRICS-ONLY EXPORT (black bg, layer in editor with screen blend)
-    </label>
     <div id="statusMsg" class="status-msg">ready.</div>
   </div>
 </aside>

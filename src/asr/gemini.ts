@@ -17,7 +17,17 @@ const TRANSCRIBE_PROMPT = `Transcribe this song's lyrics with precise timing. Re
 - Times in seconds (decimal).
 - No commentary, no markdown, JSON only.`;
 
-const MIME = (f: File): string => f.type || "audio/mpeg";
+/** Browsers report mp4 video as "video/mp4". Gemini's audio understanding
+ *  pipeline rejects video MIME types, so coerce known containers to their
+ *  audio counterpart — the audio track inside is what matters. */
+const MIME = (f: File): string => {
+  const t = (f.type || "").toLowerCase();
+  if (t === "video/mp4" || t === "video/quicktime" || t === "video/x-m4v") return "audio/mp4";
+  if (t === "video/webm")     return "audio/webm";
+  if (t === "video/ogg")      return "audio/ogg";
+  if (t.startsWith("video/")) return "audio/mp4";
+  return t || "audio/mpeg";
+};
 
 /**
  * Base64-encode a Blob without `btoa(String.fromCharCode(...buf))` — that
