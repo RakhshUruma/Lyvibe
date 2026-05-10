@@ -1,0 +1,1415 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>VJ Lyrics</title>
+<style>
+  /* ------------------------------------------------------------------ */
+  /* THEME TOKENS — overridden per-mood by JS                            */
+  /* ------------------------------------------------------------------ */
+  :root {
+    /* ---- mood-driven (overridden by JS) ---- */
+    --bg: #07060c;
+    --accent: #00f0ff;
+    --hot: #ff2da0;
+    --cool: #79ffe1;
+    --rgb-split: 2px;
+    --line-font: 'Impact', 'Yu Gothic', 'Hiragino Sans', sans-serif;
+    --line-weight: 900;
+    --line-color: #fff;
+    --line-blur: 0px;
+    --bass: 0;             /* live, 0..1, updated each frame */
+    --energy: 0;           /* live, 0..1 */
+    /* ---- UI chrome (constant, never driven by mood) ---- */
+    --ui-fg:    #e8edf5;
+    --ui-dim:   rgba(232,237,245,0.5);
+    --ui-faint: rgba(232,237,245,0.18);
+    --ui-edge:  rgba(255,255,255,0.08);
+    --ui-accent: #6fe9ff;
+    --ui-warm:   #ff5fa0;
+    --ui-bg:    rgba(12,12,20,0.92);
+    --ui-bg-2:  rgba(20,20,32,0.88);
+  }
+
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%; background: var(--bg); color: #fff;
+    font-family: 'Inter', 'Helvetica Neue', 'Hiragino Sans', sans-serif;
+    overflow: hidden;
+    transition: background 800ms ease;
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* STAGE — bgCanvas (built-in moods) + bgCss layer (LLM moods)         */
+  /* ------------------------------------------------------------------ */
+  #stage { position: fixed; inset: 0; isolation: isolate; }
+  #bgCanvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; }
+  #bgCssLayer {
+    position: absolute; inset: 0; z-index: 2; pointer-events: none;
+    isolation: isolate;        /* contain LLM CSS within local stacking context */
+    overflow: hidden;
+  }
+  #lyricsLayer {
+    position: absolute; inset: 0; pointer-events: none; perspective: 1200px;
+    z-index: 50 !important;    /* always above bg layers */
+  }
+  #fxLayer { position: absolute; inset: 0; pointer-events: none; z-index: 51; }
+
+  /* ------------------------------------------------------------------ */
+  /* LINES                                                               */
+  /* ------------------------------------------------------------------ */
+  .line {
+    position: absolute; display: inline-block; text-align: center; white-space: pre;
+    font-weight: var(--line-weight); letter-spacing: 0.02em;
+    font-family: var(--line-font);
+    will-change: transform, opacity, scale;
+    transform-origin: center;
+    filter: blur(var(--line-blur));
+    transform: translate(-50%, -50%);
+    transition: opacity 200ms ease, scale 80ms ease;
+  }
+  .line .ch {
+    display: inline-block; opacity: 0;
+    transition: opacity 100ms linear, transform 260ms cubic-bezier(.2,.9,.25,1.25);
+    text-shadow:
+      var(--rgb-split) 0 var(--hot),
+      calc(var(--rgb-split) * -1) 0 var(--accent),
+      0 0 14px rgba(255,255,255,0.25);
+    color: var(--line-color);
+    animation-play-state: paused;     /* gates .ch.shown trigger for inline-assigned anims */
+  }
+  /* Built-in entry modes (used when the active mood has no entryKeyframes from LLM) */
+  .line.enter-up    .ch { transform: translateY(50px)  scale(0.55); }
+  .line.enter-down  .ch { transform: translateY(-50px) scale(0.55); }
+  .line.enter-left  .ch { transform: translateX(-90px) scale(0.55); }
+  .line.enter-right .ch { transform: translateX(90px)  scale(0.55); }
+  .line.enter-pop   .ch { transform: scale(0) rotate(-30deg); }
+  .line.enter-spin  .ch { transform: rotate(-200deg) scale(0.25); }
+  .line.enter-drop  .ch { transform: translateY(-300px) rotate(-25deg); }
+  .line.enter-flip  .ch { transform: rotateY(90deg); }
+  .line.enter-fade  .ch { transform: scale(1.15); }
+  /* Built-in ongoing motions */
+  .line.motion-wave    .ch.shown { animation: chWave    1.8s ease-in-out infinite; animation-delay: var(--cd, 0s); }
+  .line.motion-bounce  .ch.shown { animation: chBounce  1.0s ease-out  infinite; animation-delay: var(--cd, 0s); }
+  .line.motion-flicker .ch.shown { animation: chFlicker 0.9s steps(6)  infinite; animation-delay: var(--cd, 0s); }
+  .line.motion-sway    .ch.shown { animation: chSway    2.4s ease-in-out infinite alternate; animation-delay: var(--cd, 0s); }
+  @keyframes chWave    { 0%,100% { translate: 0 0; } 50% { translate: 0 -10px; } }
+  @keyframes chBounce  { 0%,100% { translate: 0 0; } 40% { translate: 0 -6px; } }
+  @keyframes chFlicker { 0%,100% { opacity: 1; } 30% { opacity: 0.4; } 60% { opacity: 1; } 75% { opacity: 0.5; } }
+  @keyframes chSway    { from { rotate: -3deg; } to { rotate: 3deg; } }
+
+  .line .ch.shown {
+    opacity: 1;
+    transform: none;          /* override entry transforms */
+    animation-play-state: running !important;  /* must beat any stray inline */
+  }
+
+  .line.glitch .ch { /* one-shot jitter on top */
+    animation-name: jitter;
+    animation-duration: 80ms;
+    animation-iteration-count: 3;
+    animation-timing-function: steps(2);
+  }
+  @keyframes jitter {
+    0%,100% { translate: 0 0; }
+    25%  { translate: -3px 1px; }
+    50%  { translate: 2px -2px; }
+    75%  { translate: -1px 2px; }
+  }
+
+  .line.outgoing {
+    transition: opacity 600ms ease, scale 600ms ease, filter 600ms ease;
+    opacity: 0; scale: 1.2; filter: blur(6px);
+  }
+
+  .ghost {
+    position: absolute; font-family: var(--line-font); font-weight: 900;
+    color: rgba(255,255,255,0.05); pointer-events: none; user-select: none;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    animation: ghostFade 4s ease-out forwards;
+  }
+  @keyframes ghostFade {
+    from { opacity: 0; scale: 0.7; }
+    20%  { opacity: 1; }
+    to   { opacity: 0; scale: 1.3; }
+  }
+
+  /* ------------------------------------------------------------------ */
+  /* PANEL — slick glass card, bottom-right                              */
+  /* ------------------------------------------------------------------ */
+  #panel {
+    position: fixed; bottom: 20px; right: 20px; z-index: 1000;
+    width: 380px; max-height: 88vh; overflow: hidden auto;
+    background: linear-gradient(155deg, var(--ui-bg-2), var(--ui-bg));
+    border-radius: 18px;
+    backdrop-filter: blur(20px) saturate(1.3);
+    -webkit-backdrop-filter: blur(20px) saturate(1.3);
+    box-shadow:
+      0 24px 60px rgba(0,0,0,0.55),
+      0 0 0 1px var(--ui-edge),
+      inset 0 1px 0 rgba(255,255,255,0.08);
+    font-family: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace;
+    font-size: 12px;
+    color: var(--ui-fg);
+    transition: max-height 320ms ease, width 320ms ease;
+  }
+  #panel::before {
+    content: ''; position: absolute; inset: 0; border-radius: 18px;
+    padding: 1px; pointer-events: none;
+    background: linear-gradient(135deg, var(--ui-accent) 0%, transparent 55%, var(--ui-warm) 100%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    opacity: 0.55;
+  }
+  .bar {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px; border-bottom: 1px solid var(--ui-edge);
+    cursor: default;
+  }
+  .title { display: flex; align-items: center; gap: 10px; }
+  .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--ui-accent);
+    box-shadow: 0 0 12px var(--ui-accent), 0 0 4px var(--ui-accent);
+    animation: dotPulse 1.6s ease-in-out infinite;
+  }
+  @keyframes dotPulse { 0%,100%{opacity:1} 50%{opacity:0.5} }
+  .title .name { font-weight: 700; letter-spacing: 0.25em; font-size: 11px; color: #fff; }
+  .title .meta { font-size: 10px; color: var(--ui-dim); letter-spacing: 0.1em; }
+  .toggle-btn {
+    width: 28px; height: 28px; border-radius: 8px;
+    border: 1px solid var(--ui-edge);
+    background: rgba(255,255,255,0.03); color: var(--ui-fg);
+    cursor: pointer; font-size: 14px; line-height: 1;
+    transition: all 150ms;
+  }
+  .toggle-btn:hover { border-color: var(--ui-accent); color: var(--ui-accent); }
+
+  .body { padding: 16px 18px 20px; }
+  #panel.minimized .body { display: none; }
+  #panel.minimized { width: auto; max-height: 56px; }
+
+  .section { margin-top: 18px; padding-top: 18px; border-top: 1px solid var(--ui-edge); }
+  .section:first-of-type { margin-top: 0; padding-top: 0; border-top: 0; }
+  .section-label {
+    font-size: 10px; letter-spacing: 0.3em; color: var(--ui-dim);
+    text-transform: uppercase; margin-bottom: 10px;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .section-label::after {
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(90deg, var(--ui-edge), transparent);
+  }
+
+  label { display: block; font-size: 10px; color: var(--ui-dim);
+          text-transform: uppercase; letter-spacing: 0.15em; margin-top: 10px; }
+  input, select, textarea {
+    width: 100%; margin-top: 6px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--ui-edge);
+    color: var(--ui-fg); padding: 8px 10px;
+    font-family: inherit; font-size: 12px;
+    border-radius: 8px;
+    transition: border-color 180ms, background 180ms;
+  }
+  input::placeholder, textarea::placeholder { color: var(--ui-faint); }
+  input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--ui-accent);
+    background: rgba(255,255,255,0.05);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--ui-accent) 18%, transparent);
+  }
+  textarea { resize: vertical; min-height: 70px; }
+  select { cursor: pointer; }
+  select option { background: #0c0c14; color: var(--ui-fg); }
+  .row { display: flex; gap: 8px; }
+  .row > * { flex: 1; }
+
+  button {
+    cursor: pointer; font-family: inherit;
+    transition: transform 160ms ease, filter 180ms ease, box-shadow 200ms ease, border-color 180ms;
+  }
+  .cta {
+    width: 100%; padding: 14px;
+    background: linear-gradient(135deg, var(--ui-accent), var(--ui-warm));
+    color: #07060c; font-weight: 800; letter-spacing: 0.25em; font-size: 11px;
+    text-shadow: 0 1px 0 rgba(255,255,255,0.25);
+    border: none; border-radius: 10px; margin-top: 18px;
+    box-shadow: 0 6px 20px color-mix(in srgb, var(--ui-accent) 35%, transparent);
+  }
+  .cta:hover:not(:disabled) { transform: translateY(-1px); filter: brightness(1.1); }
+  .cta:active { transform: translateY(0); }
+  .cta:disabled { opacity: 0.4; cursor: wait; filter: grayscale(0.4); }
+
+  .btn-secondary {
+    width: 100%; padding: 9px; margin-top: 8px;
+    background: rgba(255,255,255,0.03);
+    border: 1px solid var(--ui-edge);
+    color: var(--ui-accent);
+    border-radius: 8px;
+    font-size: 10px; letter-spacing: 0.2em; font-weight: 600;
+  }
+  .btn-secondary:hover {
+    border-color: var(--ui-accent);
+    background: color-mix(in srgb, var(--ui-accent) 8%, transparent);
+  }
+
+  details > summary {
+    cursor: pointer; padding: 6px 0; font-size: 10px;
+    color: var(--ui-dim); letter-spacing: 0.18em;
+    text-transform: uppercase; list-style: none;
+  }
+  details > summary::-webkit-details-marker { display: none; }
+  details > summary::before { content: '+ '; margin-right: 4px; }
+  details[open] > summary::before { content: '− '; }
+
+  #status {
+    margin-top: 14px; padding: 8px 10px;
+    background: rgba(0,0,0,0.3); border: 1px solid var(--ui-edge);
+    border-radius: 6px;
+    font-size: 10px; color: var(--ui-dim);
+    min-height: 28px; word-break: break-word; white-space: pre-wrap;
+  }
+  #status.ok  { color: #79ffe1; border-color: rgba(121,255,225,0.35); }
+  #status.err { color: #ff6b88; border-color: rgba(255,107,136,0.45); }
+  #status.busy { color: var(--ui-accent); border-color: color-mix(in srgb, var(--ui-accent) 30%, transparent); }
+  #status.busy::before {
+    content: '◐ '; display: inline-block; animation: spin 1s linear infinite;
+  }
+  @keyframes spin { to { rotate: 360deg; } }
+
+  /* ------------------------------------------------------------------ */
+  /* TRANSPORT BAR — bottom-center, always visible after first play     */
+  /* ------------------------------------------------------------------ */
+  #transport {
+    position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+    z-index: 999;
+    display: none; align-items: center; gap: 10px;
+    padding: 10px 14px;
+    background: var(--ui-bg);
+    border: 1px solid var(--ui-edge);
+    border-radius: 999px;
+    backdrop-filter: blur(20px) saturate(1.3);
+    -webkit-backdrop-filter: blur(20px) saturate(1.3);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.5);
+    font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    color: var(--ui-fg);
+  }
+  #transport.show { display: flex; }
+  .tbtn {
+    width: 36px; height: 36px; border-radius: 50%;
+    border: 1px solid var(--ui-edge);
+    background: rgba(255,255,255,0.04);
+    color: var(--ui-accent);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px; cursor: pointer;
+    transition: all 150ms;
+  }
+  .tbtn:hover { border-color: var(--ui-accent); background: color-mix(in srgb, var(--ui-accent) 12%, transparent); transform: scale(1.06); }
+  .tbtn.primary {
+    width: 44px; height: 44px;
+    background: linear-gradient(135deg, var(--ui-accent), var(--ui-warm));
+    color: #07060c; border-color: transparent;
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--ui-accent) 40%, transparent);
+  }
+  .tbtn.primary:hover { filter: brightness(1.1); }
+  .ttime { letter-spacing: 0.1em; min-width: 90px; text-align: center; color: var(--ui-dim); }
+  #seek {
+    flex: 1; min-width: 200px; height: 4px;
+    background: var(--ui-edge); border-radius: 999px; overflow: hidden;
+    cursor: pointer; position: relative;
+  }
+  #seekFill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--ui-accent), var(--ui-warm));
+    width: 0%; transition: width 100ms linear;
+  }
+
+  /* progress shimmer */
+  .shimmer {
+    position: relative; overflow: hidden;
+  }
+  .shimmer::after {
+    content: ''; position: absolute; inset: 0;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+    animation: shimmer 1.6s linear infinite;
+  }
+  @keyframes shimmer { from { translate: -100%; } to { translate: 100%; } }
+</style>
+</head>
+<body>
+<div id="stage">
+  <canvas id="bgCanvas"></canvas>
+  <div id="bgCssLayer"></div>
+  <div id="lyricsLayer"></div>
+  <div id="fxLayer"></div>
+</div>
+
+<style id="dynamic-mood-style"></style>
+<style id="dynamic-bg-style"></style>
+
+<div id="transport">
+  <button class="tbtn primary" id="playPauseBtn" title="play/pause">▶</button>
+  <button class="tbtn" id="stopBtn" title="stop">■</button>
+  <span class="ttime" id="ttime">0:00 / 0:00</span>
+  <div id="seek"><div id="seekFill"></div></div>
+</div>
+
+<div id="panel">
+  <div class="bar">
+    <div class="title">
+      <span class="dot"></span>
+      <span class="name">VJ LYRICS</span>
+      <span class="meta" id="moodMeta">cyber</span>
+    </div>
+    <button class="toggle-btn" id="toggleBtn" title="minimize">−</button>
+  </div>
+  <div class="body">
+
+    <div class="section">
+      <div class="section-label">Mood</div>
+      <select id="mood">
+        <option value="cyber">CYBER · cyan/magenta · grid</option>
+        <option value="dream">DREAM · pastel · particles</option>
+        <option value="mono">MONO · b/w · stripes</option>
+        <option value="neon">NEON · hot pink · rays</option>
+        <option value="vhs">VHS · retro · noise</option>
+        <option value="zen">ZEN · calm · vortex</option>
+        <option value="chaos">CHAOS · max · rays</option>
+        <option value="custom" id="customOpt" disabled>CUSTOM · generate first</option>
+      </select>
+
+      <details>
+        <summary>Generate from prompt (Gemini writes the CSS)</summary>
+        <label>Vibe description</label>
+        <textarea id="moodPrompt" placeholder="例: ホラー映画のオープニング、深紅と漆黒、心臓の鼓動みたいに脈打つ。文字は破片のように散ってから集まる。"></textarea>
+        <button id="genMoodBtn" class="btn-secondary">⚡ GENERATE MOOD CSS</button>
+      </details>
+
+      <details>
+        <summary>Paste mood JSON (no API call)</summary>
+        <label>Paste a mood object generated elsewhere</label>
+        <textarea id="moodPasteJson" placeholder='{"vars": {...}, "bgCss": "...", "entryKeyframes": [...], "motionKeyframes": [...]}'></textarea>
+        <button id="pasteMoodBtn" class="btn-secondary">▼ LOAD MOOD JSON</button>
+      </details>
+    </div>
+
+    <div class="section">
+      <div class="section-label">Audio</div>
+      <input type="file" id="audioFile" accept="audio/*">
+      <details>
+        <summary>Manual lyrics (skip transcription)</summary>
+        <textarea id="manualJson" placeholder='[{"start":1.2,"end":3.4,"text":"hello world"}]'></textarea>
+      </details>
+    </div>
+
+    <div class="section">
+      <div class="section-label">LLM</div>
+      <label>Anthropic API key (mood gen)</label>
+      <input type="password" id="anthropicKey" placeholder="sk-ant-..." autocomplete="off">
+      <input type="text" id="anthropicModel" value="claude-sonnet-4-6" style="margin-top:6px">
+
+      <label>Gemini API key (transcription + fallback)</label>
+      <input type="password" id="apiKey" placeholder="AIza..." autocomplete="off">
+      <input type="text" id="model" value="gemini-2.5-flash" style="margin-top:6px">
+
+      <details>
+        <summary>Subscription relay (uses Claude Pro/Max)</summary>
+        <label>Relay URL</label>
+        <input type="text" id="relayUrl" value="http://127.0.0.1:8787" autocomplete="off">
+        <button id="probeRelayBtn" class="btn-secondary">⚡ PROBE RELAY</button>
+        <div style="font-size:10px; color: var(--ui-dim); margin-top:8px; line-height:1.5;">
+          run <code>node vj-relay.mjs</code> in this folder to expose your <code>claude</code> CLI.
+        </div>
+      </details>
+    </div>
+
+    <button id="transcribeBtn" class="cta">▶  TRANSCRIBE &amp; PLAY</button>
+    <button id="playBtn" class="btn-secondary" style="display:none">↻ REPLAY</button>
+    <div id="status">ready</div>
+  </div>
+</div>
+
+<script>
+"use strict";
+
+const $ = (id) => document.getElementById(id);
+const panel = $("panel");
+const statusEl = $("status");
+const canvas = $("bgCanvas");
+const ctx = canvas.getContext("2d");
+const lyricsLayer = $("lyricsLayer");
+const dynamicStyle = $("dynamic-mood-style");
+
+const state = {
+  audio: null, audioCtx: null, analyser: null, source: null,
+  lyrics: [], rafId: null, currentLineIdx: -1, currentLineEl: null,
+  bgVariantIdx: -1,
+};
+
+// =====================================================================
+// MOOD SYSTEM
+// =====================================================================
+// A mood is a config object. Built-in moods drive the canvas-based bg
+// engine + CSS-class entry/motion. LLM-generated moods carry full CSS
+// payloads (bgCss, lineExtraCss, entryKeyframes[], motionKeyframes[]).
+// =====================================================================
+const MOODS = {
+  cyber: {
+    bg: "#07060c", accent: "#00f0ff", hot: "#ff2da0", cool: "#79ffe1",
+    font: "'Impact', 'Yu Gothic', 'Hiragino Sans', sans-serif", weight: 900, color: "#fff", blur: 0,
+    rgbSplit: 2, glitchRate: 0.18, ghostRate: 0.5, tilt: 6,
+    grid: 0.06, blob: 0.20, scan: 0.4, panelBorder: "rgba(0,240,255,0.4)",
+    bgEngine: "grid", entryModes: ["up","pop","spin","fade"], motionModes: ["wave","sway"],
+    motionRate: 0.45, positionMode: "scatter",
+  },
+  dream: {
+    bg: "#1a0e2a", accent: "#ffb3e6", hot: "#c4a3ff", cool: "#8ad7ff",
+    font: "'Georgia', 'Hiragino Mincho ProN', serif", weight: 400, color: "#ffe8f5", blur: 0.3,
+    rgbSplit: 0, glitchRate: 0, ghostRate: 0.7, tilt: 3,
+    grid: 0, blob: 0.40, scan: 0, panelBorder: "rgba(255,179,230,0.4)",
+    bgEngine: "particles", entryModes: ["up","fade","pop"], motionModes: ["wave","sway"],
+    motionRate: 0.85, positionMode: "scatter",
+  },
+  mono: {
+    bg: "#000", accent: "#fff", hot: "#fff", cool: "#aaa",
+    font: "'Courier New', monospace", weight: 700, color: "#fff", blur: 0,
+    rgbSplit: 0, glitchRate: 0, ghostRate: 0.2, tilt: 0,
+    grid: 0.18, blob: 0, scan: 0, panelBorder: "rgba(255,255,255,0.3)",
+    bgEngine: "stripes", entryModes: ["up"], motionModes: [],
+    motionRate: 0, positionMode: "center",
+  },
+  neon: {
+    bg: "#08000f", accent: "#ff00aa", hot: "#00ff88", cool: "#ffff00",
+    font: "'Impact', sans-serif", weight: 900, color: "#fff", blur: 0,
+    rgbSplit: 4, glitchRate: 0.3, ghostRate: 0.6, tilt: 8,
+    grid: 0, blob: 0.45, scan: 0.5, panelBorder: "rgba(255,0,170,0.5)",
+    bgEngine: "rays", entryModes: ["pop","spin","drop","right"], motionModes: ["bounce","wave"],
+    motionRate: 0.6, positionMode: "scatter",
+  },
+  vhs: {
+    bg: "#0a0808", accent: "#ff5577", hot: "#55ddff", cool: "#fff",
+    font: "'Courier New', monospace", weight: 700, color: "#fff", blur: 0,
+    rgbSplit: 5, glitchRate: 0.4, ghostRate: 0.3, tilt: 0,
+    grid: 0, blob: 0.15, scan: 0.85, panelBorder: "rgba(255,85,119,0.4)",
+    bgEngine: "noise", entryModes: ["left","right","up"], motionModes: ["flicker"],
+    motionRate: 0.5, positionMode: "center",
+  },
+  zen: {
+    bg: "#0a1820", accent: "#a8d5ba", hot: "#d4e4dc", cool: "#7fb1c4",
+    font: "'Georgia', 'Hiragino Mincho ProN', serif", weight: 300, color: "#e8f0e8", blur: 0,
+    rgbSplit: 0, glitchRate: 0, ghostRate: 0.3, tilt: 1,
+    grid: 0, blob: 0.30, scan: 0, panelBorder: "rgba(168,213,186,0.3)",
+    bgEngine: "vortex", entryModes: ["fade","up"], motionModes: ["wave","sway"],
+    motionRate: 0.7, positionMode: "center",
+  },
+  chaos: {
+    bg: "#000", accent: "#ff0040", hot: "#00ff80", cool: "#ffaa00",
+    font: "'Impact', sans-serif", weight: 900, color: "#fff", blur: 0,
+    rgbSplit: 6, glitchRate: 0.55, ghostRate: 0.95, tilt: 12,
+    grid: 0.20, blob: 0.55, scan: 0.7, panelBorder: "rgba(255,0,64,0.5)",
+    bgEngine: "rays", entryModes: ["up","down","left","right","pop","spin","drop","flip"],
+    motionModes: ["wave","bounce","flicker","sway"],
+    motionRate: 0.9, positionMode: "scatter",
+  },
+};
+
+let currentMood = MOODS.cyber;
+
+function applyMood(name) {
+  const m = MOODS[name];
+  if (!m) return;
+  currentMood = m;
+  const r = document.documentElement.style;
+  r.setProperty("--bg", m.bg);
+  r.setProperty("--accent", m.accent);
+  r.setProperty("--hot", m.hot);
+  r.setProperty("--cool", m.cool);
+  r.setProperty("--rgb-split", m.rgbSplit + "px");
+  r.setProperty("--line-font", m.font);
+  r.setProperty("--line-weight", m.weight);
+  r.setProperty("--line-color", m.color);
+  r.setProperty("--line-blur", m.blur + "px");
+
+  // Inject mood-level CSS (lineExtra + keyframes). Background is a
+  // separate style tag so we can swap variants without rebuilding all.
+  let css = "";
+  if (m.lineExtraCss) css += m.lineExtraCss + "\n";
+  for (const k of (m.entryKeyframes || []))  css += k.css + "\n";
+  for (const k of (m.motionKeyframes || [])) css += k.css + "\n";
+  dynamicStyle.textContent = css;
+
+  // Background variants: pick first, install in dedicated style tag.
+  const bgStyle = $("dynamic-bg-style");
+  const variants = m.bgCssVariants || [];
+  if (variants.length) {
+    state.bgVariantIdx = 0;
+    bgStyle.textContent = variants[0];
+    canvas.style.opacity = "0.15";
+  } else {
+    state.bgVariantIdx = -1;
+    bgStyle.textContent = "";
+    canvas.style.opacity = "1";
+    $("bgCssLayer").innerHTML = "";
+  }
+
+  $("moodMeta").textContent = name;
+  bgState.engineT = 0;
+}
+
+function setStatus(msg, kind="ok") {
+  statusEl.textContent = msg;
+  statusEl.className = ""; statusEl.classList.add(kind);
+}
+
+$("toggleBtn").onclick = () => {
+  const min = panel.classList.toggle("minimized");
+  $("toggleBtn").textContent = min ? "+" : "−";
+};
+
+// =====================================================================
+// CANVAS BG ENGINES (built-in moods)
+// =====================================================================
+function resize() {
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = window.innerWidth * dpr;
+  canvas.height = window.innerHeight * dpr;
+  canvas.style.width = window.innerWidth + "px";
+  canvas.style.height = window.innerHeight + "px";
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+resize();
+window.addEventListener("resize", resize);
+
+const bgState = {
+  engineT: 0,
+  grid: { offset: 0 },
+  shapes: Array.from({length: 6}, () => ({
+    x: Math.random(), y: Math.random(),
+    vx: (Math.random()-0.5)*0.0003, vy: (Math.random()-0.5)*0.0003,
+    r: 80 + Math.random()*200, hue: Math.random()*360,
+  })),
+  particles: Array.from({length: 90}, () => ({
+    x: Math.random(), y: Math.random(),
+    vx: (Math.random()-0.5)*0.0008, vy: (Math.random()-0.5)*0.0008,
+    r: 0.5 + Math.random()*2.5,
+  })),
+  rayAngle: 0, vortexT: 0, stripeOffset: 0,
+};
+
+function hexToRgb(h) {
+  const m = (h||"#000").replace("#","").match(/.{1,2}/g);
+  if (!m || m.length < 3) return [0,0,0];
+  return m.slice(0,3).map(x => parseInt(x,16));
+}
+
+function bgGrid(bass, m, w, h) {
+  bgState.grid.offset += 0.4 + bass*2;
+  const [ar,ag,ab] = hexToRgb(m.accent);
+  ctx.strokeStyle = `rgba(${ar},${ag},${ab}, ${(m.grid||0.06) + bass*0.08})`;
+  ctx.lineWidth = 1; const gap = 60;
+  ctx.beginPath();
+  for (let y = (bgState.grid.offset % gap) - gap; y < h; y += gap) { ctx.moveTo(0,y); ctx.lineTo(w,y); }
+  for (let x = 0; x < w; x += gap) { ctx.moveTo(x,0); ctx.lineTo(x,h); }
+  ctx.stroke();
+}
+function bgParticles(bass, m, w, h) {
+  const [ar,ag,ab] = hexToRgb(m.accent);
+  const [hr,hg,hb] = hexToRgb(m.hot);
+  for (const p of bgState.particles) {
+    p.x += p.vx*(1+bass*4); p.y += p.vy*(1+bass*4);
+    if (p.x<-0.05) p.x=1.05; if (p.x>1.05) p.x=-0.05;
+    if (p.y<-0.05) p.y=1.05; if (p.y>1.05) p.y=-0.05;
+    const useHot = (p.r > 2);
+    const [r,g,b] = useHot ? [hr,hg,hb] : [ar,ag,ab];
+    ctx.fillStyle = `rgba(${r},${g},${b}, ${0.35 + bass*0.5})`;
+    ctx.beginPath(); ctx.arc(p.x*w, p.y*h, p.r*(1+bass*1.2), 0, Math.PI*2); ctx.fill();
+  }
+}
+function bgRays(bass, m, w, h) {
+  bgState.rayAngle += 0.003 + bass*0.025;
+  const cx=w/2, cy=h/2, len=Math.max(w,h), count=32;
+  const [ar,ag,ab] = hexToRgb(m.accent), [hr,hg,hb] = hexToRgb(m.hot);
+  ctx.lineWidth = 1;
+  for (let i=0;i<count;i++) {
+    const a = bgState.rayAngle + (i/count)*Math.PI*2;
+    const useHot = i%3 === 0;
+    ctx.strokeStyle = useHot
+      ? `rgba(${hr},${hg},${hb}, ${0.04 + bass*0.18})`
+      : `rgba(${ar},${ag},${ab}, ${0.04 + bass*0.12})`;
+    ctx.beginPath(); ctx.moveTo(cx,cy); ctx.lineTo(cx+Math.cos(a)*len, cy+Math.sin(a)*len); ctx.stroke();
+  }
+}
+function bgVortex(bass, m, w, h) {
+  bgState.vortexT += 0.004 + bass*0.02;
+  const cx=w/2, cy=h/2;
+  const [ar,ag,ab] = hexToRgb(m.accent);
+  ctx.strokeStyle = `rgba(${ar},${ag},${ab}, ${0.08 + bass*0.12})`;
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let i=0;i<240;i++) {
+    const a = i*0.18 + bgState.vortexT, radius = i*3.2;
+    const x = cx + Math.cos(a)*radius, y = cy + Math.sin(a)*radius;
+    if (i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+  }
+  ctx.stroke();
+}
+function bgStripes(bass, m, w, h) {
+  bgState.stripeOffset += 0.6 + bass*5;
+  const [hr,hg,hb] = hexToRgb(m.hot), [ar,ag,ab] = hexToRgb(m.accent);
+  const sw = 80;
+  ctx.save();
+  ctx.translate(w/2, h/2); ctx.rotate(-Math.PI/9); ctx.translate(-w, -h);
+  let i = 0;
+  for (let x = -w + (bgState.stripeOffset % (sw*2)); x < w*2; x += sw*2) {
+    const useHot = (i++ % 4 === 0);
+    ctx.fillStyle = useHot
+      ? `rgba(${hr},${hg},${hb}, ${0.07 + bass*0.1})`
+      : `rgba(${ar},${ag},${ab}, ${0.04 + bass*0.06})`;
+    ctx.fillRect(x, 0, sw, h*3);
+  }
+  ctx.restore();
+}
+function bgNoise(bass, m, w, h) {
+  const dots = 220 + Math.floor(bass*500);
+  const [cr,cg,cb] = hexToRgb(m.cool);
+  ctx.fillStyle = `rgba(${cr},${cg},${cb}, 0.5)`;
+  for (let i=0;i<dots;i++) ctx.fillRect(Math.random()*w, Math.random()*h, 2, 2);
+}
+const ENGINES = { grid: bgGrid, particles: bgParticles, rays: bgRays, vortex: bgVortex, stripes: bgStripes, noise: bgNoise };
+
+function drawBackground(bass) {
+  const w = window.innerWidth, h = window.innerHeight;
+  const m = currentMood;
+  if (m.bgCss) {
+    // CSS-driven; just fade canvas with bg color
+    const [br,bg,bb] = hexToRgb(m.bg);
+    ctx.fillStyle = `rgba(${br},${bg},${bb}, 0.5)`;
+    ctx.fillRect(0,0,w,h);
+    return;
+  }
+  const [br,bg,bb] = hexToRgb(m.bg);
+  ctx.fillStyle = `rgba(${br},${bg},${bb}, ${0.30 + bass*0.18})`;
+  ctx.fillRect(0,0,w,h);
+  (ENGINES[m.bgEngine] || bgGrid)(bass, m, w, h);
+  if (m.blob > 0) {
+    ctx.globalCompositeOperation = "lighter";
+    for (const s of bgState.shapes) {
+      s.x += s.vx; s.y += s.vy;
+      if (s.x<-0.2) s.x=1.2; if (s.x>1.2) s.x=-0.2;
+      if (s.y<-0.2) s.y=1.2; if (s.y>1.2) s.y=-0.2;
+      const cx = s.x*w, cy = s.y*h;
+      const radius = s.r*(1+bass*0.4);
+      const grad = ctx.createRadialGradient(cx,cy,0,cx,cy,radius);
+      grad.addColorStop(0, `hsla(${s.hue}, 100%, 60%, ${m.blob+bass*0.25})`);
+      grad.addColorStop(1, "hsla(0, 0%, 0%, 0)");
+      ctx.fillStyle = grad;
+      ctx.beginPath(); ctx.arc(cx,cy,radius,0,Math.PI*2); ctx.fill();
+    }
+    ctx.globalCompositeOperation = "source-over";
+  }
+  const scanProb = (m.scan||0) * (0.3 + bass);
+  if (scanProb > 0 && Math.random() < scanProb) {
+    const y = Math.random()*h;
+    const [hr,hg,hb] = hexToRgb(m.hot);
+    ctx.fillStyle = `rgba(${hr},${hg},${hb}, ${0.10 + Math.random()*0.25})`;
+    ctx.fillRect(0,y,w,2+Math.random()*4);
+  }
+  if ((m.scan||0) > 0.7 && Math.random() < 0.05) {
+    const y = Math.random()*h;
+    const bandH = 20 + Math.random()*40;
+    const dx = (Math.random()-0.5)*30;
+    try { const img = ctx.getImageData(0,y,w,bandH); ctx.putImageData(img, dx, y); } catch {}
+  }
+}
+
+// =====================================================================
+// LINE BUILDER
+// =====================================================================
+function pickRandom(arr, fallback) {
+  if (!arr || arr.length === 0) return fallback;
+  return arr[Math.floor(Math.random()*arr.length)];
+}
+function pickPosition(mode) {
+  if (mode === "center") return [50,50];
+  const c = Math.floor(Math.random()*3), r = Math.floor(Math.random()*3);
+  const x = ((c+0.5)/3)*70 + 15 + (Math.random()-0.5)*8;
+  const y = ((r+0.5)/3)*70 + 15 + (Math.random()-0.5)*8;
+  return [x,y];
+}
+
+function buildLineEl(line) {
+  const m = currentMood;
+  const div = document.createElement("div");
+  div.className = "line";
+  const len = [...line.text].length;
+  const baseVw = Math.max(4, Math.min(13, 90/Math.max(4,len)));
+  const sizeJitter = 0.85 + Math.random()*0.4;
+  div.style.fontSize = (baseVw*sizeJitter).toFixed(2) + "vw";
+
+  // Pick entry: LLM keyframe wins if available, else built-in mode class
+  const entryKf = m.entryKeyframes && m.entryKeyframes.length
+    ? pickRandom(m.entryKeyframes) : null;
+  const motionKf = m.motionKeyframes && m.motionKeyframes.length && Math.random() < (m.motionRate||0)
+    ? pickRandom(m.motionKeyframes) : null;
+  const motionMode = (!motionKf && Math.random() < (m.motionRate||0))
+    ? pickRandom(m.motionModes, null) : null;
+
+  if (!entryKf) {
+    const entry = pickRandom(m.entryModes, "up");
+    div.classList.add("enter-" + entry);
+  }
+  if (motionMode) div.classList.add("motion-" + motionMode);
+  if (Math.random() < (m.glitchRate||0)) div.classList.add("glitch");
+
+  const [px,py] = pickPosition(m.positionMode);
+  div.style.left = px + "%"; div.style.top = py + "%";
+  const tilt = (Math.random()-0.5) * (m.tilt||0);
+  div.style.rotate = tilt.toFixed(2) + "deg";
+
+  const chars = [...line.text];
+  chars.forEach((char, i) => {
+    const span = document.createElement("span");
+    span.className = "ch";
+    span.textContent = char === " " ? " " : char;
+    span.style.setProperty("--cd", (i*0.06).toFixed(3) + "s");
+
+    // Inline animation wiring for LLM keyframes
+    if (entryKf || motionKf) {
+      const names = [], dur = [], easing = [], delay = [], iter = [], fill = [];
+      if (entryKf) {
+        names.push(entryKf.name);
+        dur.push(entryKf.duration || "0.6s");
+        easing.push(entryKf.easing || "ease-out");
+        delay.push("0s");
+        iter.push("1");
+        fill.push("forwards");
+      }
+      if (motionKf) {
+        names.push(motionKf.name);
+        dur.push(motionKf.duration || "1.5s");
+        easing.push(motionKf.easing || "ease-in-out");
+        const entryDur = entryKf ? (entryKf.duration || "0.6s") : "0s";
+        delay.push(`calc(${entryDur} + var(--cd, 0s))`);
+        iter.push(motionKf.iteration || "infinite");
+        fill.push("none");
+      }
+      span.style.animationName = names.join(",");
+      span.style.animationDuration = dur.join(",");
+      span.style.animationTimingFunction = easing.join(",");
+      span.style.animationDelay = delay.join(",");
+      span.style.animationIterationCount = iter.join(",");
+      span.style.animationFillMode = fill.join(",");
+      // NB: do NOT set animation-play-state inline — it would beat the
+      // .ch.shown cascade rule and the chars stay frozen at frame 0 (invisible).
+    }
+    div.appendChild(span);
+  });
+  return div;
+}
+
+function spawnGhost(text) {
+  const g = document.createElement("div");
+  g.className = "ghost";
+  g.textContent = text;
+  g.style.fontSize = (60 + Math.random()*180) + "px";
+  g.style.left = (Math.random()*60 + 10) + "%";
+  g.style.top  = (Math.random()*60 + 10) + "%";
+  g.style.rotate = ((Math.random()-0.5)*40).toFixed(1) + "deg";
+  $("stage").appendChild(g);
+  setTimeout(() => g.remove(), 4000);
+}
+
+function maybeSwapBgVariant() {
+  const m = currentMood;
+  const variants = m.bgCssVariants || [];
+  if (variants.length < 2) return;
+  if (Math.random() > (m.bgSwapRate ?? 0.5)) return;
+  // pick any other variant
+  const cur = state.bgVariantIdx;
+  let next = cur;
+  if (variants.length === 2) next = 1 - cur;
+  else { while (next === cur) next = Math.floor(Math.random() * variants.length); }
+  state.bgVariantIdx = next;
+  $("dynamic-bg-style").textContent = variants[next];
+}
+
+function setActiveLine(idx) {
+  if (idx === state.currentLineIdx) return;
+  if (state.currentLineEl) {
+    const el = state.currentLineEl;
+    el.classList.add("outgoing");
+    setTimeout(() => el.remove(), 700);
+  }
+  state.currentLineIdx = idx;
+  if (idx < 0) { state.currentLineEl = null; return; }
+  const line = state.lyrics[idx];
+  const el = buildLineEl(line);
+  lyricsLayer.appendChild(el);
+  state.currentLineEl = el;
+  if (Math.random() < (currentMood.ghostRate||0)) spawnGhost(line.text);
+  maybeSwapBgVariant();
+}
+
+function updateLyrics(t) {
+  let activeIdx = -1;
+  for (let i=0;i<state.lyrics.length;i++) {
+    const l = state.lyrics[i];
+    if (t>=l.start && t<l.end) { activeIdx = i; break; }
+    if (t < l.start) break;
+  }
+  setActiveLine(activeIdx);
+  if (activeIdx<0 || !state.currentLineEl) return;
+  const line = state.lyrics[activeIdx];
+  const dur = Math.max(0.05, line.end - line.start);
+  const progress = Math.min(1, (t - line.start) / dur);
+  const chars = state.currentLineEl.querySelectorAll(".ch");
+  const reveal = Math.ceil(progress * chars.length);
+  for (let i=0;i<chars.length;i++) if (i<reveal) chars[i].classList.add("shown");
+}
+
+function loop() {
+  let bass = 0, energy = 0;
+  if (state.analyser) {
+    const arr = new Uint8Array(state.analyser.frequencyBinCount);
+    state.analyser.getByteFrequencyData(arr);
+    let bs = 0; for (let i=0;i<12;i++) bs += arr[i];
+    bass = (bs/12)/255;
+    let es = 0; for (let i=0;i<arr.length;i++) es += arr[i];
+    energy = (es/arr.length)/255;
+  }
+  drawBackground(bass);
+  // expose live audio to CSS for LLM bg layer
+  document.documentElement.style.setProperty("--bass", bass.toFixed(3));
+  document.documentElement.style.setProperty("--energy", energy.toFixed(3));
+  if (state.currentLineEl) state.currentLineEl.style.scale = (1 + bass*0.10).toFixed(3);
+  if (state.audio && !state.audio.paused) updateLyrics(state.audio.currentTime);
+  state.rafId = requestAnimationFrame(loop);
+}
+
+// =====================================================================
+// GEMINI
+// =====================================================================
+const TRANSCRIBE_PROMPT = `You are an audio transcription engine for a kinetic-typography lyric video.
+Output a JSON array of short lyric segments synced to the audio.
+
+Rules:
+- Each segment: a short phrase (4-18 chars; split long lines at natural breath points).
+- Provide accurate "start" and "end" in seconds (decimal allowed).
+- Preserve the original language exactly. Do not translate.
+- Skip purely instrumental sections.
+- Return ONLY the JSON array.`;
+
+async function fileToBase64(file) {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => { const s = r.result; resolve(s.slice(s.indexOf(",")+1)); };
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+
+// ---------- Multi-source LLM dispatcher (mood-gen path) ----------
+async function anthropicCall(apiKey, model, prompt) {
+  const resp = await fetch("https://api.anthropic.com/v1/messages", {
+    method: "POST",
+    headers: {
+      "x-api-key": apiKey,
+      "anthropic-version": "2023-06-01",
+      "anthropic-dangerous-direct-browser-access": "true",
+      "content-type": "application/json"
+    },
+    body: JSON.stringify({
+      model: model || "claude-sonnet-4-6",
+      max_tokens: 4096,
+      messages: [{ role: "user", content: prompt }]
+    })
+  });
+  if (!resp.ok) throw new Error(`Anthropic ${resp.status}: ${(await resp.text()).slice(0,300)}`);
+  const data = await resp.json();
+  const text = data?.content?.[0]?.text;
+  if (!text) throw new Error("Anthropic: no text in response");
+  return text;
+}
+
+async function relayCall(url, prompt, model) {
+  const resp = await fetch(url.replace(/\/$/,"") + "/generate", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ prompt, model })
+  });
+  if (!resp.ok) throw new Error(`Relay ${resp.status}: ${(await resp.text()).slice(0,200)}`);
+  const data = await resp.json();
+  if (!data.result) throw new Error("Relay: empty result");
+  return data.result;
+}
+
+async function relayProbe(url) {
+  const resp = await fetch(url.replace(/\/$/,"") + "/health", { method: "GET" });
+  if (!resp.ok) throw new Error("relay " + resp.status);
+  return resp.json();
+}
+
+// Returns { text, source } where source is "anthropic" | "subscription" | "gemini"
+async function callMoodLLM(prompt, opts={}) {
+  const errors = [];
+  const tried = [];
+  const anthropicKey  = $("anthropicKey").value.trim();
+  const anthropicModel= $("anthropicModel").value.trim() || "claude-sonnet-4-6";
+  const geminiKey     = $("apiKey").value.trim();
+  const geminiModel   = $("model").value.trim() || "gemini-2.5-flash";
+  const relayUrl      = $("relayUrl").value.trim() || "http://127.0.0.1:8787";
+
+  // Order: anthropic api -> subscription relay -> gemini
+  const sources = [];
+  if (anthropicKey) sources.push("anthropic");
+  sources.push("subscription");
+  if (geminiKey) sources.push("gemini");
+
+  for (const src of sources) {
+    tried.push(src);
+    try {
+      if (src === "anthropic") {
+        if (opts.onTry) opts.onTry(src);
+        const text = await anthropicCall(anthropicKey, anthropicModel, prompt);
+        return { text, source: src, tried };
+      }
+      if (src === "subscription") {
+        if (opts.onTry) opts.onTry(src);
+        const text = await relayCall(relayUrl, prompt, anthropicModel);
+        return { text, source: src, tried };
+      }
+      if (src === "gemini") {
+        if (opts.onTry) opts.onTry(src);
+        const body = {
+          contents: [{ parts: [{ text: prompt }] }],
+          generationConfig: { responseMimeType: "application/json", temperature: 0.95 }
+        };
+        const text = await geminiCall(geminiKey, geminiModel, body);
+        return { text, source: src, tried };
+      }
+    } catch (e) {
+      errors.push(`${src}: ${e.message}`);
+    }
+  }
+  throw new Error(`all sources failed [${tried.join(",")}] — ${errors.join(" | ")}`);
+}
+
+async function geminiCall(apiKey, model, body) {
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(apiKey)}`;
+  const resp = await fetch(url, {
+    method: "POST", headers: {"Content-Type":"application/json"}, body: JSON.stringify(body)
+  });
+  if (!resp.ok) throw new Error(`Gemini ${resp.status}: ${(await resp.text()).slice(0,300)}`);
+  const data = await resp.json();
+  const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+  if (!text) {
+    const fr = data?.candidates?.[0]?.finishReason;
+    throw new Error(`No text returned (finishReason=${fr}). Try another song / model.`);
+  }
+  return text;
+}
+
+async function transcribe(file, apiKey, model) {
+  const sizeMB = file.size/1024/1024;
+  if (sizeMB > 19) throw new Error(`Audio is ${sizeMB.toFixed(1)}MB. Inline limit ~20MB.`);
+  setStatus(`encoding audio (${sizeMB.toFixed(1)}MB)...`, "busy");
+  const b64 = await fileToBase64(file);
+  const body = {
+    contents: [{ parts: [
+      { inline_data: { mime_type: file.type || "audio/mpeg", data: b64 } },
+      { text: TRANSCRIBE_PROMPT }
+    ]}],
+    generationConfig: {
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: "ARRAY", items: { type: "OBJECT", properties: {
+          start: { type: "NUMBER" }, end: { type: "NUMBER" }, text: { type: "STRING" }
+        }, required: ["start","end","text"] }
+      },
+      temperature: 0.2
+    }
+  };
+  setStatus("calling Gemini (20-90s for full song)...", "busy");
+  const text = await geminiCall(apiKey, model, body);
+  const parsed = JSON.parse(text);
+  if (!Array.isArray(parsed)) throw new Error("Response was not a JSON array");
+  return parsed;
+}
+
+// ---------- Mood CSS generation via Gemini ----------
+const MOOD_PROMPT = (desc) => `You design CSS for a kinetic-typography lyric video. Generate a STRICT JSON object describing a mood. The CSS will be injected into a running web page.
+
+Vibe description: ${desc}
+
+Schema (output exactly this shape):
+{
+  "vars": {
+    "bg": "#hex (page background — keep dark, RGB sum < 300)",
+    "accent": "#hex (primary glow color)",
+    "hot":    "#hex (warm secondary)",
+    "cool":   "#hex (cool secondary)",
+    "font":   "CSS font-family stack with quotes around named fonts. Pick from: 'Impact','Yu Gothic','Hiragino Sans','Georgia','Hiragino Mincho ProN','Courier New','Helvetica Neue','Arial Black' plus generic sans-serif/serif/monospace",
+    "weight":  100|300|400|700|900,
+    "color":  "#hex (text base color, usually near white)",
+    "blur":    0..1.5,
+    "rgbSplit":0..8,
+    "panelBorder":"rgba(...) string",
+    "tilt":    0..15,
+    "glitchRate":0..1,
+    "ghostRate": 0..1,
+    "motionRate":0..1,
+    "positionMode":"center"|"scatter"
+  },
+  "bgVariants": [
+    "<<CSS string for ONE background look. EVERY rule's selector MUST start with '#bgCssLayer' or be a '@keyframes ...' block. Allowed selectors: '#bgCssLayer', '#bgCssLayer::before', '#bgCssLayer::after'. Do NOT target body/html/#stage/#lyricsLayer/.line/.ch/#panel/#transport. Do NOT use position:fixed (use position:absolute, inset:0). Use gradients (linear/radial/conic), filter, mix-blend-mode, transforms, opacity, animation. You may reference var(--bass) (live 0..1) and var(--energy) in transform/filter/opacity for audio reactivity (NOT inside @keyframes). Keep z-index unset or low (<10). @keyframes names should be unique across all variants — prefix with 'vj-bg-<variant>-'.>>",
+    "<<a SECOND distinctly different background look matching the same vibe — different colors balance, different motion pattern, different composition. Same selector rules.>>",
+    "<<a THIRD variant — different again. Aim for 3-4 visually distinct scenes that share the vibe.>>"
+  ],
+  "bgSwapRate": 0.55,
+  "lineExtraCss": "<<optional additional CSS targeting .line or .line .ch — extra text-shadow, filter, etc. Can be empty string.>>",
+  "entryKeyframes": [
+    { "name":"vj-<unique-id>", "css":"@keyframes vj-<id> { 0% { ... } 100% { ... } }", "duration":"0.5s..1.2s", "easing":"cubic-bezier(...) or ease-out etc." }
+    /* 2-4 entries — each is how a character appears */
+  ],
+  "motionKeyframes": [
+    { "name":"vj-<unique-id>", "css":"@keyframes vj-<id> { 0%,100% {...} 50% {...} }", "duration":"0.8s..3s", "easing":"ease-in-out", "iteration":"infinite" }
+    /* 0-3 motions — ongoing per-char idle motion */
+  ]
+}
+
+Rules for keyframes:
+- Use only safe CSS properties: transform, translate, rotate, scale, opacity, filter, color, text-shadow.
+- DO NOT use 'transform: matrix(...)' or any url() reference.
+- Names must be unique kebab-case prefixed with "vj-".
+- Entry keyframes start invisible (opacity:0 or scale:0 etc.) and end at neutral state.
+- Motion keyframes loop and DO NOT reset opacity to 0 (text must stay visible).
+- Do not include CSS variables you didn't define.
+
+Match the vibe's energy. Make all CSS valid. Return ONLY the JSON, no markdown fence, no commentary.`;
+
+function sanitizeCss(css) {
+  return String(css||"")
+    .replace(/^\s*```(?:css)?\s*/i, "")
+    .replace(/```\s*$/i, "")
+    .replace(/<\/?style[^>]*>/gi, "");
+}
+function sanitizeBgCss(css) {
+  let s = sanitizeCss(css);
+  // never let LLM bg layer escape via fixed positioning
+  s = s.replace(/position\s*:\s*fixed\s*;?/gi, "position: absolute;");
+  // strip rules whose selector targets things outside #bgCssLayer / @keyframes.
+  // we tokenize naively: split by top-level closing braces, keep only blocks
+  // whose pre-{ selector is acceptable.
+  const out = [];
+  const re = /([^{}]+)\{([^{}]*(?:\{[^{}]*\}[^{}]*)*)\}/g;
+  let m;
+  while ((m = re.exec(s)) !== null) {
+    const sel = m[1].trim();
+    const body = m[2];
+    const isKeyframes = /^@keyframes\b/i.test(sel) || /^@-webkit-keyframes\b/i.test(sel);
+    const safeSel = sel.split(",").every(p => {
+      const t = p.trim();
+      return /^#bgCssLayer(\s|::before|::after|$)/.test(t)
+          || /^#bgCssLayer\s*::?[a-z-]+/.test(t);
+    });
+    if (isKeyframes || safeSel) out.push(`${sel} { ${body} }`);
+  }
+  return out.join("\n");
+}
+const ALLOWED_FONTS = ['Impact','Yu Gothic','Hiragino Sans','Georgia','Hiragino Mincho ProN','Courier New','Helvetica Neue','Arial Black','sans-serif','serif','monospace'];
+
+function normalizeMoodJson(parsed) {
+  const v = parsed.vars || parsed;  // accept flat or nested
+  const num = (val, mn, mx, dflt) => {
+    const n = Number(val); if (!isFinite(n)) return dflt;
+    return Math.max(mn, Math.min(mx, n));
+  };
+  const cleanKf = (arr, kind) => (Array.isArray(arr) ? arr : []).map((k, i) => ({
+    name:     /^[a-z0-9-]+$/i.test(k.name||"") ? k.name : `vj-${kind}-${i}-${Math.random().toString(36).slice(2,6)}`,
+    css:      sanitizeCss(k.css),
+    duration: k.duration || (kind === "entry" ? "0.6s" : "1.6s"),
+    easing:   k.easing   || (kind === "entry" ? "cubic-bezier(.2,.9,.25,1.2)" : "ease-in-out"),
+    iteration:k.iteration|| "infinite",
+  })).filter(k => {
+    const ok = k.css.includes("@keyframes") &&
+               new RegExp("@keyframes\\s+" + k.name.replace(/-/g,"\\-") + "\\b").test(k.css);
+    return ok;
+  });
+
+  // bgCssVariants: prefer parsed.bgVariants (array), else wrap parsed.bgCss
+  let variants = [];
+  if (Array.isArray(parsed.bgVariants)) {
+    variants = parsed.bgVariants
+      .map(x => sanitizeBgCss(typeof x === "string" ? x : x.css))
+      .filter(s => s && s.trim().length);
+  } else if (parsed.bgCss) {
+    const c = sanitizeBgCss(parsed.bgCss);
+    if (c && c.trim()) variants = [c];
+  }
+
+  return {
+    bg: v.bg || "#0a0a14",
+    accent: v.accent || "#00f0ff",
+    hot: v.hot || "#ff2da0",
+    cool: v.cool || "#79ffe1",
+    font: v.font || "'Impact', sans-serif",
+    weight: num(v.weight, 100, 900, 700),
+    color: v.color || "#ffffff",
+    blur: num(v.blur, 0, 2, 0),
+    rgbSplit: num(v.rgbSplit, 0, 10, 2),
+    panelBorder: v.panelBorder || "rgba(255,255,255,0.4)",
+    tilt: num(v.tilt, 0, 20, 5),
+    glitchRate: num(v.glitchRate, 0, 1, 0.2),
+    ghostRate: num(v.ghostRate, 0, 1, 0.4),
+    motionRate: num(v.motionRate, 0, 1, 0.5),
+    bgSwapRate: num(v.bgSwapRate ?? parsed.bgSwapRate, 0, 1, 0.55),  // chance per new line to swap variant
+    positionMode: v.positionMode === "center" ? "center" : "scatter",
+    bgCssVariants: variants,
+    lineExtraCss: sanitizeCss(parsed.lineExtraCss),
+    entryKeyframes: cleanKf(parsed.entryKeyframes, "entry"),
+    motionKeyframes: cleanKf(parsed.motionKeyframes, "motion"),
+    bgEngine: null, entryModes: ["fade"], motionModes: [],
+    grid: 0, blob: 0, scan: 0,
+  };
+}
+
+async function generateCustomMood(description, opts={}) {
+  const prompt = MOOD_PROMPT(description);
+  const { text, source, tried } = await callMoodLLM(prompt, opts);
+  // robustly extract JSON: model may include prose / code fences
+  const stripped = String(text).replace(/^[\s\S]*?```(?:json)?\s*/i, "").replace(/```\s*$/i, "");
+  let parsed;
+  try { parsed = JSON.parse(stripped); }
+  catch {
+    // try to find first { ... last }
+    const m = String(text).match(/\{[\s\S]*\}/);
+    if (!m) throw new Error(`no JSON in ${source} response (tried ${tried.join(",")})`);
+    parsed = JSON.parse(m[0]);
+  }
+  const mood = normalizeMoodJson(parsed);
+  mood.__source = source;
+  return mood;
+}
+
+// =====================================================================
+// PLAYBACK
+// =====================================================================
+function setupAudio(file) {
+  if (state.audio) { state.audio.pause(); URL.revokeObjectURL(state.audio.src); }
+  state.audio = new Audio(URL.createObjectURL(file));
+  state.audio.crossOrigin = "anonymous";
+  state.audioCtx = state.audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+  if (state.source) try { state.source.disconnect(); } catch {}
+  state.source = state.audioCtx.createMediaElementSource(state.audio);
+  state.analyser = state.audioCtx.createAnalyser();
+  state.analyser.fftSize = 1024; state.analyser.smoothingTimeConstant = 0.7;
+  state.source.connect(state.analyser);
+  state.analyser.connect(state.audioCtx.destination);
+}
+
+async function play() {
+  if (!state.audio) return;
+  if (state.audioCtx.state === "suspended") await state.audioCtx.resume();
+  state.currentLineIdx = -1;
+  if (state.currentLineEl) { state.currentLineEl.remove(); state.currentLineEl = null; }
+  lyricsLayer.innerHTML = "";
+  state.audio.currentTime = 0;
+  await state.audio.play();
+  if (!state.rafId) loop();
+  panel.classList.add("minimized");
+  $("toggleBtn").textContent = "+";
+  $("transport").classList.add("show");
+  updatePlayBtn();
+}
+
+function fmtTime(s) {
+  if (!isFinite(s)) return "0:00";
+  s = Math.max(0, Math.floor(s));
+  const m = Math.floor(s/60), r = s%60;
+  return `${m}:${r.toString().padStart(2,"0")}`;
+}
+function updatePlayBtn() {
+  const a = state.audio;
+  $("playPauseBtn").textContent = (a && !a.paused) ? "⏸" : "▶";
+}
+function transportTick() {
+  const a = state.audio;
+  if (!a) return;
+  $("ttime").textContent = `${fmtTime(a.currentTime)} / ${fmtTime(a.duration)}`;
+  const p = a.duration ? (a.currentTime / a.duration) * 100 : 0;
+  $("seekFill").style.width = p + "%";
+  requestAnimationFrame(transportTick);
+}
+
+// =====================================================================
+// UI HANDLERS
+// =====================================================================
+$("transcribeBtn").onclick = async () => {
+  const apiKey = $("apiKey").value.trim();
+  const model = $("model").value.trim() || "gemini-2.5-flash";
+  const file = $("audioFile").files[0];
+  const manualJson = $("manualJson").value.trim();
+  const btn = $("transcribeBtn");
+  if (!file) { setStatus("select an audio file first.", "err"); return; }
+  btn.disabled = true;
+  try {
+    setupAudio(file);
+    if (manualJson) {
+      setStatus("using manual lyrics JSON...", "busy");
+      state.lyrics = JSON.parse(manualJson);
+    } else {
+      if (!apiKey) throw new Error("API key required (or paste manual JSON)");
+      state.lyrics = await transcribe(file, apiKey, model);
+      try { localStorage.setItem("lastLyrics", JSON.stringify(state.lyrics)); } catch {}
+    }
+    state.lyrics.sort((a,b) => a.start - b.start);
+    setStatus(`got ${state.lyrics.length} segments. playing.`, "ok");
+    $("playBtn").style.display = "block";
+    await play();
+  } catch (e) {
+    setStatus(e.message || String(e), "err");
+    console.error(e);
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+$("playBtn").onclick = () => play();
+
+// transport controls
+$("playPauseBtn").onclick = async () => {
+  const a = state.audio; if (!a) return;
+  if (a.paused) {
+    if (state.audioCtx.state === "suspended") await state.audioCtx.resume();
+    await a.play();
+  } else {
+    a.pause();
+  }
+  updatePlayBtn();
+};
+$("stopBtn").onclick = () => {
+  const a = state.audio; if (!a) return;
+  a.pause(); a.currentTime = 0;
+  state.currentLineIdx = -1;
+  if (state.currentLineEl) { state.currentLineEl.remove(); state.currentLineEl = null; }
+  lyricsLayer.innerHTML = "";
+  updatePlayBtn();
+};
+$("seek").addEventListener("click", (e) => {
+  const a = state.audio; if (!a || !a.duration) return;
+  const rect = e.currentTarget.getBoundingClientRect();
+  const ratio = (e.clientX - rect.left) / rect.width;
+  a.currentTime = Math.max(0, Math.min(a.duration, ratio * a.duration));
+  // reset rendered line so updateLyrics picks correctly
+  state.currentLineIdx = -2;
+});
+transportTick();
+
+function installCustomMood(moodObj, label="custom mood") {
+  MOODS.custom = moodObj;
+  $("customOpt").disabled = false;
+  $("mood").value = "custom";
+  applyMood("custom");
+  try {
+    localStorage.setItem("customMood", JSON.stringify(moodObj));
+    localStorage.setItem("mood", "custom");
+  } catch {}
+  setStatus(`${label} loaded · ${moodObj.entryKeyframes.length} entry / ${moodObj.motionKeyframes.length} motion keyframes · ${(moodObj.bgCssVariants||[]).length} bg variant(s).`, "ok");
+}
+
+$("pasteMoodBtn").onclick = () => {
+  const raw = $("moodPasteJson").value.trim();
+  if (!raw) { setStatus("paste a mood JSON first.", "err"); return; }
+  try {
+    const parsed = JSON.parse(raw);
+    const mood = normalizeMoodJson(parsed);
+    if (mood.entryKeyframes.length === 0) {
+      setStatus("warning: no valid entryKeyframes after sanitize. text may not animate.", "err");
+    }
+    installCustomMood(mood, "pasted mood");
+  } catch (e) {
+    setStatus("paste parse failed: " + (e.message||e), "err");
+    console.error(e);
+  }
+};
+
+$("genMoodBtn").onclick = async () => {
+  const desc = $("moodPrompt").value.trim();
+  if (!desc) { setStatus("enter a vibe description first.", "err"); return; }
+  const hasAnyKey = $("anthropicKey").value.trim() || $("apiKey").value.trim();
+  // We allow proceeding without keys — relay may serve via subscription.
+  const btn = $("genMoodBtn");
+  btn.disabled = true; btn.classList.add("shimmer");
+  try {
+    setStatus("trying mood-gen sources...", "busy");
+    const m = await generateCustomMood(desc, {
+      onTry: (src) => setStatus(`trying ${src}...`, "busy"),
+    });
+    MOODS.custom = m;
+    $("customOpt").disabled = false;
+    $("mood").value = "custom";
+    applyMood("custom");
+    try {
+      localStorage.setItem("customMood", JSON.stringify(m));
+      localStorage.setItem("moodPrompt", desc);
+      localStorage.setItem("mood", "custom");
+    } catch {}
+    setStatus(`custom CSS via ${m.__source} · ${m.entryKeyframes.length} entry / ${m.motionKeyframes.length} motion KFs · ${(m.bgCssVariants||[]).length} bg variant(s).`, "ok");
+  } catch (e) {
+    const msg = (e.message||String(e));
+    setStatus("mood gen failed: " + msg + (hasAnyKey ? "" : "  ※no keys set; start the relay or paste an API key."), "err");
+    console.error(e);
+  } finally {
+    btn.disabled = false; btn.classList.remove("shimmer");
+  }
+};
+
+$("probeRelayBtn").onclick = async () => {
+  const url = $("relayUrl").value.trim() || "http://127.0.0.1:8787";
+  const btn = $("probeRelayBtn");
+  btn.disabled = true;
+  setStatus("probing relay...", "busy");
+  try {
+    const info = await relayProbe(url);
+    setStatus(`relay OK at ${url} (claude=${info.claude||"?"})`, "ok");
+  } catch (e) {
+    setStatus(`relay unreachable at ${url}: ${e.message||e}.  start with: node vj-relay.mjs`, "err");
+  } finally {
+    btn.disabled = false;
+  }
+};
+
+// restore from localStorage
+try {
+  const persistInput = (id, key) => {
+    const v = localStorage.getItem(key);
+    if (v != null) $(id).value = v;
+    $(id).addEventListener("change", () => {
+      try { localStorage.setItem(key, $(id).value); } catch {}
+    });
+  };
+  persistInput("apiKey",        "geminiKey");
+  persistInput("model",         "geminiModel");
+  persistInput("anthropicKey",  "anthropicKey");
+  persistInput("anthropicModel","anthropicModel");
+  persistInput("relayUrl",      "relayUrl");
+  const cm = localStorage.getItem("customMood");
+  if (cm) { MOODS.custom = JSON.parse(cm); $("customOpt").disabled = false; }
+  const mp = localStorage.getItem("moodPrompt");
+  if (mp) $("moodPrompt").value = mp;
+} catch {}
+
+const moodSel = $("mood");
+const savedMood = (() => { try { return localStorage.getItem("mood"); } catch { return null; } })();
+if (savedMood && MOODS[savedMood]) moodSel.value = savedMood;
+applyMood(moodSel.value);
+moodSel.addEventListener("change", () => {
+  applyMood(moodSel.value);
+  try { localStorage.setItem("mood", moodSel.value); } catch {}
+});
+
+loop();
+</script>
+</body>
+</html>

@@ -1,0 +1,516 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<title>VJ Lyrics — UI Spec</title>
+<style>
+  :root {
+    --bg: #0a0a12;
+    --fg: #e8edf5;
+    --dim: rgba(232,237,245,0.55);
+    --faint: rgba(232,237,245,0.18);
+    --edge: rgba(255,255,255,0.08);
+    --accent: #6fe9ff;
+    --warm: #ff5fa0;
+    --card: rgba(20,20,32,0.65);
+    --code: #1a1a28;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--fg);
+               font-family: 'Inter', 'Helvetica Neue', 'Hiragino Sans', sans-serif;
+               line-height: 1.55; font-size: 14px; }
+  .container { max-width: 1080px; margin: 0 auto; padding: 56px 32px 120px; }
+  h1 { font-size: 28px; letter-spacing: 0.06em; margin: 0 0 4px; font-weight: 800; }
+  h1 .sub { display: block; font-size: 12px; color: var(--dim); margin-top: 4px; letter-spacing: 0.3em; text-transform: uppercase; }
+  h2 { font-size: 18px; margin: 56px 0 14px; padding-bottom: 8px; border-bottom: 1px solid var(--edge);
+       letter-spacing: 0.04em; }
+  h2 .num { color: var(--accent); margin-right: 12px; font-family: 'JetBrains Mono', monospace; }
+  h3 { font-size: 14px; margin: 28px 0 10px; color: var(--accent); letter-spacing: 0.05em; text-transform: uppercase; }
+  p { margin: 0 0 12px; color: rgba(232,237,245,0.85); }
+  code, pre, .mono { font-family: 'JetBrains Mono', 'SF Mono', 'Consolas', monospace; }
+  code { background: var(--code); padding: 1px 6px; border-radius: 4px; font-size: 12px; color: var(--accent); }
+  pre { background: var(--code); padding: 14px 16px; border-radius: 8px; border: 1px solid var(--edge);
+        font-size: 12px; overflow: auto; line-height: 1.5; color: rgba(232,237,245,0.85); }
+  hr { border: 0; border-top: 1px solid var(--edge); margin: 40px 0; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0 18px; font-size: 13px; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--edge); vertical-align: top; }
+  th { color: var(--accent); font-weight: 600; font-size: 11px; letter-spacing: 0.15em; text-transform: uppercase; }
+  td code { background: rgba(255,255,255,0.04); }
+  ul { margin: 4px 0 14px; padding-left: 20px; }
+  li { margin-bottom: 6px; color: rgba(232,237,245,0.85); }
+  .lead { color: var(--dim); font-size: 13px; margin: 0 0 32px; }
+  .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  .card { background: var(--card); border: 1px solid var(--edge); border-radius: 12px; padding: 18px; }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 999px; background: rgba(111,233,255,0.15);
+          color: var(--accent); font-size: 10px; letter-spacing: 0.2em; text-transform: uppercase; margin-right: 6px; }
+  .pill.warm { background: rgba(255,95,160,0.15); color: var(--warm); }
+  .pill.dim { background: rgba(255,255,255,0.05); color: var(--dim); }
+  .ascii { background: var(--code); padding: 18px; border-radius: 8px; font-family: 'JetBrains Mono', monospace;
+           font-size: 12px; line-height: 1.45; color: rgba(232,237,245,0.85); white-space: pre; overflow-x: auto;
+           border: 1px solid var(--edge); }
+
+  /* Mockups */
+  .stage-mock {
+    position: relative; border-radius: 12px; overflow: hidden;
+    height: 360px; background: radial-gradient(ellipse at center, #1a0e2a 0%, #050010 70%);
+    border: 1px solid var(--edge); margin: 12px 0 20px;
+  }
+  .stage-mock .lyrics {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    font-family: 'Impact', sans-serif; font-size: 64px; font-weight: 900;
+    color: #fff;
+    text-shadow: 3px 0 #ff2da0, -3px 0 #00f0ff, 0 0 22px rgba(255,255,255,0.3);
+    letter-spacing: 0.04em;
+  }
+  .stage-mock .grid-bg {
+    position: absolute; inset: 0; opacity: 0.08;
+    background-image:
+      linear-gradient(0deg, transparent 59px, var(--accent) 60px),
+      linear-gradient(90deg, transparent 59px, var(--accent) 60px);
+    background-size: 60px 60px;
+  }
+  .panel-mock {
+    width: 320px; padding: 14px 18px;
+    background: linear-gradient(155deg, rgba(20,20,32,0.92), rgba(8,8,16,0.94));
+    border-radius: 14px; border: 1px solid var(--edge);
+    font-family: 'JetBrains Mono', monospace; font-size: 11px; color: var(--fg);
+    position: relative;
+  }
+  .panel-mock::before {
+    content: ''; position: absolute; inset: 0; border-radius: 14px;
+    padding: 1px;
+    background: linear-gradient(135deg, var(--accent) 0%, transparent 55%, var(--warm) 100%);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    opacity: 0.55; pointer-events: none;
+  }
+  .panel-mock .bar { display: flex; justify-content: space-between; align-items: center;
+                     padding-bottom: 10px; border-bottom: 1px solid var(--edge); margin-bottom: 12px; }
+  .panel-mock .dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%;
+                     background: var(--accent); box-shadow: 0 0 8px var(--accent); margin-right: 8px; }
+  .panel-mock .name { font-weight: 700; letter-spacing: 0.2em; font-size: 10px; }
+  .panel-mock .meta { color: var(--dim); font-size: 9px; margin-left: 6px; letter-spacing: 0.1em; }
+  .panel-mock .toggle { width: 24px; height: 24px; border-radius: 6px; border: 1px solid var(--edge);
+                        background: rgba(255,255,255,0.03); color: var(--dim);
+                        display: inline-flex; align-items: center; justify-content: center; font-size: 12px; }
+  .panel-mock .sec { padding: 10px 0 6px; border-top: 1px solid var(--edge); margin-top: 10px; }
+  .panel-mock .sec:first-of-type { border-top: 0; padding-top: 0; margin-top: 0; }
+  .panel-mock .seclabel { color: var(--dim); font-size: 9px; letter-spacing: 0.3em; text-transform: uppercase;
+                          margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+  .panel-mock .seclabel::after { content: ''; flex: 1; height: 1px;
+                                 background: linear-gradient(90deg, var(--edge), transparent); }
+  .panel-mock .field { background: rgba(255,255,255,0.03); border: 1px solid var(--edge);
+                       padding: 6px 8px; border-radius: 6px; color: var(--fg); margin-top: 4px; font-size: 11px; }
+  .panel-mock .field.ph { color: var(--faint); }
+  .panel-mock .cta { background: linear-gradient(135deg, var(--accent), var(--warm));
+                     color: #000; text-align: center; padding: 10px;
+                     border-radius: 8px; font-weight: 800; letter-spacing: 0.25em; font-size: 10px;
+                     margin-top: 14px; }
+  .panel-mock .btn2 { background: rgba(255,255,255,0.03); border: 1px solid var(--edge);
+                      color: var(--accent); text-align: center; padding: 7px;
+                      border-radius: 6px; font-size: 9px; letter-spacing: 0.2em; margin-top: 6px; }
+  .panel-mock .status { background: rgba(0,0,0,0.4); border: 1px solid var(--edge);
+                        padding: 6px 8px; border-radius: 5px; font-size: 9px;
+                        color: var(--dim); margin-top: 10px; }
+  .panel-mock .status.ok  { color: #79ffe1; border-color: rgba(121,255,225,0.4); }
+  .panel-mock .status.err { color: #ff6b88; border-color: rgba(255,107,136,0.4); }
+  .panel-mock .status.busy{ color: var(--accent); border-color: rgba(111,233,255,0.4); }
+
+  .transport-mock {
+    display: inline-flex; align-items: center; gap: 10px;
+    padding: 8px 14px; border-radius: 999px;
+    background: rgba(12,12,20,0.92); border: 1px solid var(--edge);
+    font-family: 'JetBrains Mono', monospace; font-size: 10px;
+  }
+  .tbtn-mock { width: 28px; height: 28px; border-radius: 50%; border: 1px solid var(--edge);
+               background: rgba(255,255,255,0.04); color: var(--accent);
+               display: inline-flex; align-items: center; justify-content: center; font-size: 12px; }
+  .tbtn-mock.primary { width: 36px; height: 36px;
+                       background: linear-gradient(135deg, var(--accent), var(--warm));
+                       color: #000; border: 0; }
+  .seek-mock { width: 180px; height: 3px; background: var(--edge); border-radius: 999px; position: relative; }
+  .seek-mock .fill { width: 35%; height: 100%; background: linear-gradient(90deg, var(--accent), var(--warm)); border-radius: 999px; }
+
+  .editor-mock {
+    width: 320px; padding: 14px 16px; background: linear-gradient(155deg, rgba(20,20,32,0.94), rgba(8,8,16,0.96));
+    border-radius: 14px; border: 1px solid var(--edge); font-family: 'JetBrains Mono', monospace; font-size: 11px;
+    position: relative;
+  }
+  .editor-mock::before {
+    content: ''; position: absolute; inset: 0; border-radius: 14px; padding: 1px;
+    background: linear-gradient(135deg, var(--warm), transparent 60%, var(--accent));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude; opacity: 0.55; pointer-events: none;
+  }
+  .editor-mock h4 { margin: 0 0 10px; font-size: 10px; color: var(--warm); letter-spacing: 0.25em; }
+  .editor-mock label { display: block; font-size: 9px; color: var(--dim); letter-spacing: 0.18em;
+                       text-transform: uppercase; margin-top: 8px; margin-bottom: 3px; }
+  .editor-mock .row3 { display: flex; gap: 6px; margin-top: 6px; }
+  .editor-mock .row3 .field { flex: 1; }
+  .editor-mock .actions { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 10px; }
+  .editor-mock .actions span { background: rgba(255,255,255,0.04); border: 1px solid var(--edge);
+                                padding: 5px 4px; text-align: center; border-radius: 5px;
+                                font-size: 9px; color: var(--dim); }
+
+  .legend { display: flex; gap: 16px; flex-wrap: wrap; font-size: 12px; margin: 8px 0 16px; color: var(--dim); }
+  .legend span::before { content: '■ '; color: var(--accent); margin-right: 4px; }
+  .legend .warm::before { color: var(--warm); }
+  .legend .dim::before { color: var(--dim); }
+
+  .toc { background: var(--card); border: 1px solid var(--edge); border-radius: 10px;
+         padding: 14px 22px; margin: 20px 0 40px; }
+  .toc ol { margin: 0; padding-left: 20px; }
+  .toc li { margin-bottom: 4px; }
+  .toc a { color: var(--accent); text-decoration: none; }
+  .toc a:hover { text-decoration: underline; }
+</style>
+</head>
+<body>
+<div class="container">
+
+<h1>
+  VJ Lyrics — UI Spec
+  <span class="sub">v1.1 · 2026.05 · documentation only</span>
+</h1>
+
+<p class="lead">
+このドキュメントは VJ Lyrics アプリの UI レイヤを部位別に説明します。実装ではなく仕様書です。
+コア方針: <strong>シンプルさ維持</strong> · <strong>API キー入力欄を撤去(.env)</strong> · <strong>歌詞編集フローを一級市民</strong>。
+</p>
+
+<div class="toc">
+  <strong>Contents</strong>
+  <ol>
+    <li><a href="#layout">レイアウト全体</a></li>
+    <li><a href="#stage">Stage(背景・歌詞表示レイヤ)</a></li>
+    <li><a href="#panel">Control Panel</a></li>
+    <li><a href="#transport">Transport Bar</a></li>
+    <li><a href="#editor">Lyric Editor(stop時自動展開)</a></li>
+    <li><a href="#status">Status / LLM Source 表示</a></li>
+    <li><a href="#states">状態バリエーション</a></li>
+    <li><a href="#tokens">デザイントークン</a></li>
+    <li><a href="#hotkeys">ホットキー</a></li>
+  </ol>
+</div>
+
+<!-- =================================================================== -->
+<h2 id="layout"><span class="num">01</span>レイアウト全体</h2>
+
+<p>3レイヤ構成。背景の Stage が全画面、その手前に半透明のフローティング UI が乗る。</p>
+
+<div class="ascii">┌───────────────────────────────────────────────────────────┐
+│                                                           │
+│                                                           │
+│                   STAGE (full-screen)                     │
+│                                                           │
+│                  ━━━━━━━━━━━━━━━━━                        │
+│                  ＨＥＡＲＴＢＥＡＴ                        │
+│                  ━━━━━━━━━━━━━━━━━                        │
+│                                                           │
+│                                                           │
+│                                       ┌─────────────────┐ │
+│                                       │   PANEL         │ │
+│                                       │  (bottom-right) │ │
+│                                       └─────────────────┘ │
+│                                                           │
+│            ┌─────────────────────────────────┐            │
+│            │  ▶  ■   1:23 / 3:42  [━━━━━━━]   │            │
+│            └─────────────────────────────────┘            │
+│                  TRANSPORT (bottom-center)                │
+└───────────────────────────────────────────────────────────┘</div>
+
+<div class="legend">
+  <span>Stage = 背景描画 + 歌詞描画</span>
+  <span>Panel = 全コントロール</span>
+  <span>Transport = 再生制御(再生中常駐)</span>
+</div>
+
+<p>UI は最小化可能。Panel を最小化 → タイトルバーだけ残る。Transport は常時表示。</p>
+
+
+<!-- =================================================================== -->
+<h2 id="stage"><span class="num">02</span>Stage</h2>
+
+<p>4段の z-stack で構成される全画面領域。LLM生成 CSS は <code>#bgCssLayer</code> に閉じ込められ、歌詞レイヤ(z=50)を侵さない。</p>
+
+<table>
+  <tr><th>z</th><th>id</th><th>役割</th></tr>
+  <tr><td>1</td><td><code>#bgCanvas</code></td><td>組込 mood の canvas エンジン(grid / particles / rays / vortex / stripes / noise)</td></tr>
+  <tr><td>2</td><td><code>#bgCssLayer</code></td><td>カスタム mood の CSS 背景(LLM が <code>::before</code>/<code>::after</code> 込みで生成)。<code>isolation: isolate</code> で stacking context 隔離</td></tr>
+  <tr><td>50</td><td><code>#lyricsLayer</code></td><td>歌詞行(<code>.line</code>)の絶対配置領域。<code>!important</code> で z 固定</td></tr>
+  <tr><td>51</td><td><code>#fxLayer</code></td><td>ゴーストエコー等の追加エフェクト</td></tr>
+</table>
+
+<div class="stage-mock">
+  <div class="grid-bg"></div>
+  <div class="lyrics">ＶＪ　ＬＹＲＩＣＳ</div>
+</div>
+
+<h3>歌詞 1 行の構造</h3>
+<pre>.line(position: absolute; left: <var>x%</var>; top: <var>y%</var>; transform: translate(-50%,-50%); rotate: <var>tilt</var>deg)
+  └─ .ch × N (1文字 1 span)
+      ├─ inline animation: 「entry KF」 + 「motion KF」(CUSTOM mood時)
+      └─ .shown class でアニメ起動 / opacity 1 化</pre>
+
+<p>各行はランダムで:</p>
+<ul>
+  <li>位置 — center モード or scatter モード(3×3グリッド + 微オフセット)</li>
+  <li>サイズ — 文字数ベース ±25%</li>
+  <li>傾き — mood の <code>tilt</code> 範囲内でランダム</li>
+  <li>entry / motion アニメ — mood 配列からランダム1個</li>
+  <li>glitch / ghost — 確率発動</li>
+</ul>
+
+
+<!-- =================================================================== -->
+<h2 id="panel"><span class="num">03</span>Control Panel</h2>
+
+<p>右下のグラスカード。最大幅 380px、最大高 88vh、内部スクロール。<strong>API キー欄は撤去</strong>(<code>.env</code> で設定)、その分シンプル。</p>
+
+<div class="grid-2">
+  <div>
+    <h3>セクション構成</h3>
+    <ul>
+      <li><strong>MOOD</strong> — preset 選択 / プロンプト生成 / JSON 貼付</li>
+      <li><strong>AUDIO</strong> — ファイル選択 / 手動歌詞 JSON</li>
+      <li><strong>STATUS</strong>(旧 LLM 欄置換) — 各ソースの可用性表示のみ</li>
+      <li>主アクション: <strong>TRANSCRIBE &amp; PLAY</strong>(CTA)</li>
+      <li>副アクション: <strong>EXPORT</strong>(録画開始)</li>
+    </ul>
+  </div>
+  <div class="panel-mock">
+    <div class="bar">
+      <div><span class="dot"></span><span class="name">VJ LYRICS</span><span class="meta">cyber</span></div>
+      <span class="toggle">−</span>
+    </div>
+    <div class="sec">
+      <div class="seclabel">MOOD</div>
+      <div class="field">CYBER · cyan/magenta · grid ▾</div>
+      <div class="field" style="font-size:9px; color:var(--dim); margin-top:6px">+ Generate from prompt</div>
+      <div class="field" style="font-size:9px; color:var(--dim); margin-top:4px">+ Paste mood JSON</div>
+    </div>
+    <div class="sec">
+      <div class="seclabel">AUDIO</div>
+      <div class="field ph">choose audio file...</div>
+      <div class="field" style="font-size:9px; color:var(--dim); margin-top:6px">+ Manual lyrics JSON</div>
+    </div>
+    <div class="sec">
+      <div class="seclabel">STATUS</div>
+      <div style="font-size:9px; line-height:1.7">
+        Mood:&nbsp; <span style="color:#79ffe1">anthropic ✓</span> · sub <span style="color:var(--dim)">?</span> · <span style="color:#79ffe1">gemini ✓</span><br>
+        ASR: &nbsp; <span style="color:#79ffe1">openai ✓</span> · <span style="color:#79ffe1">gemini ✓</span><br>
+        MCP: &nbsp; <span style="color:#79ffe1">localhost:8787 ✓</span>
+      </div>
+    </div>
+    <div class="cta">▶ &nbsp; TRANSCRIBE &amp; PLAY</div>
+    <div class="btn2">⬇ EXPORT WEBM</div>
+    <div class="status ok">got 24 segments. playing.</div>
+  </div>
+</div>
+
+<h3>MOOD セクション・各サブブロック</h3>
+<table>
+  <tr><th>UI</th><th>用途</th><th>生成チャネル</th></tr>
+  <tr><td>preset select</td><td>組込 7種 (cyber, dream, mono, neon, vhs, zen, chaos)</td><td>静的</td></tr>
+  <tr><td><code>&lt;details&gt;</code> Generate from prompt</td><td>vibe テキスト → mood JSON 自動生成</td><td>LLM dispatcher</td></tr>
+  <tr><td><code>&lt;details&gt;</code> Paste mood JSON</td><td>外部生成(Skill / 別環境)の JSON を直接ロード</td><td>手動</td></tr>
+</table>
+
+<h3>AUDIO セクション</h3>
+<table>
+  <tr><th>UI</th><th>用途</th></tr>
+  <tr><td>file input</td><td>mp3 / m4a / wav / ogg、25MB超は自動 Files API へ</td></tr>
+  <tr><td><code>&lt;details&gt;</code> Manual lyrics JSON</td><td>ASR をスキップして手書き歌詞を流し込み</td></tr>
+</table>
+
+
+<!-- =================================================================== -->
+<h2 id="transport"><span class="num">04</span>Transport Bar</h2>
+
+<p>画面下中央のピル型コントロール。一度再生したら常駐。最小化中も操作可能。</p>
+
+<div style="margin: 16px 0 24px">
+  <div class="transport-mock">
+    <span class="tbtn-mock primary">▶</span>
+    <span class="tbtn-mock">■</span>
+    <span style="color:var(--dim); min-width:80px; text-align:center">1:23 / 3:42</span>
+    <span class="seek-mock"><span class="fill"></span></span>
+  </div>
+</div>
+
+<table>
+  <tr><th>要素</th><th>挙動</th></tr>
+  <tr><td><code>▶</code> / <code>⏸</code></td><td>play / pause トグル</td></tr>
+  <tr><td><code>■</code></td><td>停止 → t=0 戻し → 表示中歌詞クリア → <strong>Lyric Editor をその位置の行で自動展開</strong></td></tr>
+  <tr><td>時刻表示</td><td><code>m:ss / m:ss</code></td></tr>
+  <tr><td>シークバー</td><td>クリックで該当時刻へジャンプ、ジャンプ後の歌詞インデックス再評価</td></tr>
+</table>
+
+
+<!-- =================================================================== -->
+<h2 id="editor"><span class="num">05</span>Lyric Editor</h2>
+
+<p>v1.1 で追加される<strong>目玉機能</strong>。停止 / 一時停止時、現在再生中だった行が編集カードに自動展開されインライン修正できる。</p>
+
+<div class="grid-2">
+  <div>
+    <h3>表示タイミング</h3>
+    <ul>
+      <li><code>■ STOP</code> 押下時 → 直前再生中だった行を表示</li>
+      <li><code>⏸ PAUSE</code> 押下時 → 現在行を表示</li>
+      <li>再生中に <kbd>E</kbd> 押下 → 自動 pause + 現在行を表示</li>
+      <li>副パネル(全行リスト)の行クリック → その行を表示 + 該当時刻シーク</li>
+    </ul>
+    <h3>フィールド</h3>
+    <ul>
+      <li><code>text</code> — 1 行のテキスト</li>
+      <li><code>start</code> — 秒(小数可)</li>
+      <li><code>end</code> — 秒(小数可)</li>
+    </ul>
+    <h3>アクション</h3>
+    <ul>
+      <li><strong>Apply</strong> — 配列に反映 + 自動ソート + 永続化</li>
+      <li><strong>Prev / Next</strong> — 前/後の行に移動</li>
+      <li><strong>Split</strong> — このシーク位置で行を 2 つに分割</li>
+      <li><strong>Insert before / after</strong> — 空行追加</li>
+      <li><strong>Delete</strong> — この行を削除</li>
+    </ul>
+  </div>
+  <div class="editor-mock">
+    <h4>EDIT CURRENT LINE</h4>
+    <label>text</label>
+    <div class="field">heart beats in the dark</div>
+    <div class="row3">
+      <div>
+        <label>start (s)</label>
+        <div class="field">12.45</div>
+      </div>
+      <div>
+        <label>end (s)</label>
+        <div class="field">14.20</div>
+      </div>
+    </div>
+    <div class="actions">
+      <span>‹ prev</span><span>next ›</span><span>split</span><span>delete</span>
+    </div>
+    <div class="cta" style="margin-top:12px; background:linear-gradient(135deg,var(--warm),var(--accent)); padding:8px; font-size:10px">APPLY</div>
+  </div>
+</div>
+
+
+<!-- =================================================================== -->
+<h2 id="status"><span class="num">06</span>Status / Source 表示</h2>
+
+<p>API キー UI を撤去した代わりに、現在使えるソースを縦並びで表示する。クリックで probe 再実行。</p>
+
+<table>
+  <tr><th>シンボル</th><th>意味</th></tr>
+  <tr><td><span style="color:#79ffe1">✓</span></td><td>利用可能(probe 成功 or キー設定済)</td></tr>
+  <tr><td><span style="color:#ff6b88">✗</span></td><td>利用不可(認証エラー / 接続失敗)</td></tr>
+  <tr><td><span style="color:var(--dim)">?</span></td><td>未確認(押下 or 初回呼出時に判定)</td></tr>
+</table>
+
+<h3>下部のメッセージ行(従来 #status)</h3>
+<table>
+  <tr><th>状態</th><th>例</th></tr>
+  <tr><td><span class="pill">ok</span></td><td><code>got 24 segments. playing.</code></td></tr>
+  <tr><td><span class="pill">busy</span></td><td><code>◐ trying anthropic... (cache hit)</code></td></tr>
+  <tr><td><span class="pill warm">err</span></td><td><code>failed: anthropic 429 | sub: ECONNREFUSED | gemini ok in 2.1s</code></td></tr>
+</table>
+
+<p>失敗時は <strong>Paste mood JSON</strong> セクションが赤フレームで強調される(手動回避導線)。</p>
+
+
+<!-- =================================================================== -->
+<h2 id="states"><span class="num">07</span>状態バリエーション</h2>
+
+<h3>1. 初期(キー無し / 音声無し)</h3>
+<p>STATUS は ✗ 多め、CTA は無効化されない(MCP / relay でも動く可能性のため)。Generate 押下時に dispatcher が判定。</p>
+
+<h3>2. 再生中 / panel 最小化</h3>
+<p><code>#panel.minimized</code> で body が <code>display:none</code>、bar(タイトル+トグル)のみ残る。Transport は別途常駐。</p>
+
+<h3>3. CUSTOM mood 適用中</h3>
+<p>panel header の <code>.meta</code> が <code>custom</code> 表示。<code>#dynamic-mood-style</code> に keyframe 群、<code>#dynamic-bg-style</code> に現在 variant。各行ごとに <code>bgSwapRate</code> で variant 切替。</p>
+
+<h3>4. Lyric Editor open</h3>
+<p>Panel と並列(右下、Panel の下)に Editor カード。Editor 中は再生停止。Apply で再生再開しない(意図的)。</p>
+
+<h3>5. Export 中</h3>
+<p>専用フルスクリーンオーバーレイ:</p>
+<div class="ascii">┌──────────────────────────────────────┐
+│                                      │
+│           ◐  RENDERING               │
+│        ━━━━━━━━━━━━━━━ 38%           │
+│        1:24 / 3:42 · 720p30          │
+│                                      │
+│              [ CANCEL ]              │
+│                                      │
+└──────────────────────────────────────┘</div>
+<p>レンダ中の現フレームを背景に薄く表示、進捗バー + キャンセル。</p>
+
+<h3>6. エラー(全 LLM ソース失敗)</h3>
+<p>status は赤、Paste mood JSON が赤フレームで強調、preset セレクタも操作可能(逃げ道)。</p>
+
+
+<!-- =================================================================== -->
+<h2 id="tokens"><span class="num">08</span>デザイントークン</h2>
+
+<p>UI chrome は mood 色から完全分離。これにより custom mood の色がどんなに暗くても UI は読める。</p>
+
+<h3>カラー</h3>
+<table>
+  <tr><th>token</th><th>用途</th><th>値</th></tr>
+  <tr><td><code>--ui-fg</code></td><td>主要テキスト</td><td><code>#e8edf5</code></td></tr>
+  <tr><td><code>--ui-dim</code></td><td>サブテキスト・ラベル</td><td><code>rgba(232,237,245,0.55)</code></td></tr>
+  <tr><td><code>--ui-faint</code></td><td>placeholder</td><td><code>rgba(232,237,245,0.18)</code></td></tr>
+  <tr><td><code>--ui-edge</code></td><td>枠線・区切り</td><td><code>rgba(255,255,255,0.08)</code></td></tr>
+  <tr><td><code>--ui-accent</code></td><td>アクセント / ドット / focus / CTA グラデ起点</td><td><code>#6fe9ff</code></td></tr>
+  <tr><td><code>--ui-warm</code></td><td>サブアクセント / CTA グラデ終点 / エディタ枠</td><td><code>#ff5fa0</code></td></tr>
+  <tr><td><code>--ui-bg</code> / <code>--ui-bg-2</code></td><td>パネル背景(2階調)</td><td><code>rgba(12,12,20,0.92)</code> 系</td></tr>
+</table>
+
+<h3>動的(mood 由来)</h3>
+<p>これらは custom mood で書き換わるが <strong>UI には流入させない</strong>:</p>
+<ul>
+  <li><code>--bg</code> / <code>--accent</code> / <code>--hot</code> / <code>--cool</code> — 文字エフェクト・背景演出</li>
+  <li><code>--rgb-split</code> / <code>--line-font</code> / <code>--line-weight</code> / <code>--line-color</code> / <code>--line-blur</code> — 歌詞描画</li>
+  <li><code>--bass</code> / <code>--energy</code> — 毎フレーム JS 更新、CSS から音反応</li>
+</ul>
+
+<h3>形状・余白</h3>
+<table>
+  <tr><th>要素</th><th>値</th></tr>
+  <tr><td>パネル角丸</td><td><code>18px</code></td></tr>
+  <tr><td>カード角丸</td><td><code>14px</code></td></tr>
+  <tr><td>Transport 角丸</td><td><code>999px</code>(ピル)</td></tr>
+  <tr><td>パネル余白</td><td><code>14-18px</code></td></tr>
+  <tr><td>セクション間</td><td><code>18px</code> + 上枠 1px</td></tr>
+  <tr><td>backdrop-filter</td><td><code>blur(20px) saturate(1.3)</code></td></tr>
+</table>
+
+
+<!-- =================================================================== -->
+<h2 id="hotkeys"><span class="num">09</span>ホットキー</h2>
+
+<table>
+  <tr><th>キー</th><th>動作</th></tr>
+  <tr><td><kbd>Space</kbd></td><td>play / pause</td></tr>
+  <tr><td><kbd>E</kbd></td><td>Lyric Editor 起動(自動 pause)</td></tr>
+  <tr><td><kbd>Esc</kbd></td><td>Editor 閉じる / オーバーレイ閉じる</td></tr>
+  <tr><td><kbd>Ctrl</kbd>+<kbd>Enter</kbd> / <kbd>Cmd</kbd>+<kbd>Enter</kbd></td><td>Editor で Apply(textarea の改行と衝突回避のため修飾必須)</td></tr>
+  <tr><td><kbd>Tab</kbd></td><td>Editor フィールド間移動</td></tr>
+  <tr><td><kbd>←</kbd> <kbd>→</kbd></td><td>5秒シーク</td></tr>
+  <tr><td><kbd>M</kbd></td><td>パネル最小化トグル</td></tr>
+</table>
+
+
+<hr>
+
+<p style="color: var(--dim); font-size: 12px; text-align:center;">
+  vj-lyrics-ui-spec · UI documentation only · 実装は <code>vj-lyrics.html</code> 参照
+</p>
+
+</div>
+</body>
+</html>

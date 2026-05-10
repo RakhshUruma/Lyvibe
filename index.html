@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>VJ Lyrics</title>
+<link rel="stylesheet" href="/src/style.css" />
+</head>
+<body>
+
+<!-- ===== STAGE (z-stack) ===== -->
+<div id="stage">
+  <canvas id="bgCanvas"></canvas>
+  <div id="bgCssLayer"></div>
+  <div id="lyricsLayer"></div>
+  <div id="fxLayer"></div>
+</div>
+
+<!-- ===== CONTROL PANEL (bottom-right) ===== -->
+<aside id="panel" class="glass">
+  <header class="panel-bar">
+    <div class="panel-title">
+      <span class="dot"></span>
+      <span class="name">VJ LYRICS</span>
+      <span class="meta" id="moodMeta">preset</span>
+    </div>
+    <button class="toggle" id="panelToggle" aria-label="minimize">−</button>
+  </header>
+
+  <div class="panel-body">
+    <!-- MOOD -->
+    <section class="sec">
+      <div class="seclabel">MOOD</div>
+      <select id="presetSelect" class="field">
+        <option value="cyber">CYBER · cyan/magenta · grid</option>
+        <option value="dream">DREAM · pastel · particles</option>
+        <option value="mono">MONO · b/w · stripes</option>
+        <option value="neon">NEON · hot pink · rays</option>
+        <option value="vhs">VHS · noise · scan</option>
+        <option value="zen">ZEN · slate · vortex</option>
+        <option value="chaos">CHAOS · clash · all</option>
+        <option value="custom" id="customOption" hidden>CUSTOM · LLM-generated</option>
+      </select>
+
+      <div class="slider-row">
+        <label>INTENSITY <span id="intensityVal" class="mono">1.0×</span></label>
+        <input type="range" id="intensity" min="0.3" max="2" step="0.05" value="1" class="range" />
+      </div>
+
+      <details class="sub">
+        <summary>+ Generate from prompt</summary>
+        <textarea id="moodPrompt" rows="3" class="field" placeholder="e.g. horror heartbeat, deep red, slow pulse"></textarea>
+        <button id="moodGenBtn" class="btn2">GENERATE</button>
+      </details>
+
+      <details class="sub">
+        <summary id="pasteMoodSummary">+ Paste mood JSON</summary>
+        <textarea id="moodJson" rows="4" class="field mono" placeholder='{"bg":"#000","accent":"#0ff",...}'></textarea>
+        <button id="moodApplyBtn" class="btn2">APPLY JSON</button>
+      </details>
+    </section>
+
+    <!-- AUDIO -->
+    <section class="sec">
+      <div class="seclabel">AUDIO</div>
+      <input type="file" id="audioFile" class="field" accept="audio/*" />
+
+      <details class="sub">
+        <summary>+ Manual lyrics JSON</summary>
+        <textarea id="manualLyrics" rows="4" class="field mono" placeholder='{"segments":[{"start":0,"end":3,"text":"..."}]}'></textarea>
+        <button id="manualLyricsBtn" class="btn2">APPLY LYRICS</button>
+      </details>
+    </section>
+
+    <!-- STATUS -->
+    <section class="sec">
+      <div class="seclabel">STATUS</div>
+      <div class="status-grid mono" id="statusGrid">
+        <div>Mood:&nbsp; <span data-src="anthropic">anthropic ?</span> · <span data-src="relay">sub ?</span> · <span data-src="gemini-mood">gemini ?</span></div>
+        <div>ASR: &nbsp; <span data-src="openai">openai ?</span> · <span data-src="gemini-asr">gemini ?</span> · <span data-src="assemblyai">assemblyai ?</span></div>
+        <div>MCP: &nbsp; <span data-src="mcp">localhost:8787 ?</span></div>
+      </div>
+    </section>
+
+    <button id="goBtn" class="cta">▶ &nbsp; TRANSCRIBE &amp; PLAY</button>
+    <button id="exportBtn" class="btn2">⬇ EXPORT WEBM</button>
+    <div id="statusMsg" class="status-msg">ready.</div>
+  </div>
+</aside>
+
+<!-- ===== TRANSPORT (bottom-center, hidden until first play) ===== -->
+<div id="transport" class="transport hidden">
+  <button class="tbtn primary" id="playBtn" aria-label="play">▶</button>
+  <button class="tbtn" id="stopBtn" aria-label="stop">■</button>
+  <span class="time mono"><span id="timeCur">0:00</span> / <span id="timeDur">0:00</span></span>
+  <div class="seek" id="seekBar"><div class="fill" id="seekFill"></div></div>
+</div>
+
+<!-- ===== LYRIC EDITOR CARD (hidden by default) ===== -->
+<aside id="editor" class="glass editor hidden">
+  <header class="editor-bar">
+    <h4>EDIT CURRENT LINE</h4>
+    <button id="editorClose" class="toggle" aria-label="close">×</button>
+  </header>
+  <label>text</label>
+  <textarea id="editText" class="field" rows="2"></textarea>
+  <div class="row3">
+    <div><label>start (s)</label><input id="editStart" type="number" step="0.01" class="field" /></div>
+    <div><label>end (s)</label><input id="editEnd"   type="number" step="0.01" class="field" /></div>
+    <div><label>idx</label><input id="editIdx" type="text" class="field" readonly /></div>
+  </div>
+  <div class="actions">
+    <button class="btnX" id="ePrev">‹ prev</button>
+    <button class="btnX" id="eNext">next ›</button>
+    <button class="btnX" id="eSplit">split</button>
+    <button class="btnX" id="eDel">delete</button>
+    <button class="btnX" id="eInsBefore">+ before</button>
+    <button class="btnX" id="eInsAfter">+ after</button>
+  </div>
+  <button id="eApply" class="cta warm">APPLY</button>
+</aside>
+
+<!-- ===== EXPORT OVERLAY ===== -->
+<div id="exportOverlay" class="overlay hidden">
+  <div class="overlay-card">
+    <div class="overlay-spin">◐ RENDERING</div>
+    <div class="overlay-bar"><div id="exportFill"></div></div>
+    <div id="exportLabel" class="mono">0:00 / 0:00 · 720p30</div>
+    <button id="exportCancel" class="btn2">CANCEL</button>
+  </div>
+</div>
+
+<audio id="audio" preload="auto" hidden></audio>
+
+<!-- ===== Apply toast (lyric editor) ===== -->
+<div id="editorToast">✓ UPDATED</div>
+
+<script type="module" src="/src/main.ts"></script>
+</body>
+</html>
