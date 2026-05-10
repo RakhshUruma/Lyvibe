@@ -22,6 +22,10 @@ export type ExportOpts = {
   fps?: number;
   onProgress?: (cur: number, dur: number) => void;
   signal?: AbortSignal;
+  /** Render only the lyric text on a solid black background — designed to
+   *  be layered in another editor with "Screen" / "Add" / "Lighten"
+   *  blend mode (black becomes transparent against the underlying clip). */
+  lyricsOnly?: boolean;
 };
 
 export const recordWebm = async (opts: ExportOpts): Promise<Blob> => {
@@ -56,11 +60,18 @@ export const recordWebm = async (opts: ExportOpts): Promise<Blob> => {
 
   let raf = 0;
   const draw = () => {
-    mctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--bg") || "#000";
-    mctx.fillRect(0, 0, w, h);
-    if (bgCanvas.width > 0) mctx.drawImage(bgCanvas, 0, 0, w, h);
+    if (opts.lyricsOnly) {
+      // pure black bg — when laid over a video clip with "screen" blend the
+      // black is treated as transparent and only the glowing text comes through.
+      mctx.fillStyle = "#000";
+      mctx.fillRect(0, 0, w, h);
+    } else {
+      mctx.fillStyle = getComputedStyle(document.documentElement).getPropertyValue("--bg") || "#000";
+      mctx.fillRect(0, 0, w, h);
+      if (bgCanvas.width > 0) mctx.drawImage(bgCanvas, 0, 0, w, h);
+    }
 
-    // draw active line text (single line snapshot — sufficient for MVP)
+    // draw active line text
     const line = lyrics.querySelector(".line.shown") as HTMLElement | null;
     if (line) {
       const txt = line.textContent ?? "";
@@ -68,7 +79,8 @@ export const recordWebm = async (opts: ExportOpts): Promise<Blob> => {
       mctx.font = `${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
       mctx.fillStyle = cs.color;
       mctx.textAlign = "center"; mctx.textBaseline = "middle";
-      mctx.shadowColor = "rgba(255,255,255,0.3)"; mctx.shadowBlur = 22;
+      mctx.shadowColor = opts.lyricsOnly ? "rgba(255,255,255,0.55)" : "rgba(255,255,255,0.3)";
+      mctx.shadowBlur = opts.lyricsOnly ? 32 : 22;
       mctx.fillText(txt, w / 2, h / 2);
       mctx.shadowBlur = 0;
     }

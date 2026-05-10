@@ -61,7 +61,10 @@
       <details class="sub">
         <summary id="pasteMoodSummary">+ Paste mood JSON</summary>
         <textarea id="moodJson" rows="4" class="field mono" placeholder='{"bg":"#000","accent":"#0ff",...}'></textarea>
-        <button id="moodApplyBtn" class="btn2">APPLY JSON</button>
+        <div class="row">
+          <button id="moodApplyBtn" class="btn2">APPLY JSON</button>
+          <button id="moodLoadCurrentBtn" class="btn2">↺ LOAD CURRENT</button>
+        </div>
       </details>
     </section>
 
@@ -73,7 +76,10 @@
       <details class="sub">
         <summary>+ Manual lyrics JSON</summary>
         <textarea id="manualLyrics" rows="4" class="field mono" placeholder='{"segments":[{"start":0,"end":3,"text":"..."}]}'></textarea>
-        <button id="manualLyricsBtn" class="btn2">APPLY LYRICS</button>
+        <div class="row">
+          <button id="manualLyricsBtn" class="btn2">APPLY LYRICS</button>
+          <button id="lyricsLoadCurrentBtn" class="btn2">↺ LOAD CURRENT</button>
+        </div>
       </details>
     </section>
 
@@ -88,7 +94,14 @@
     </section>
 
     <button id="goBtn" class="cta">▶ &nbsp; TRANSCRIBE &amp; PLAY</button>
-    <button id="exportBtn" class="btn2">⬇ EXPORT WEBM</button>
+    <div class="row">
+      <button id="exportBtn" class="btn2">⬇ EXPORT WEBM</button>
+      <button id="exportProjectBtn" class="btn2">⬇ EXPORT PROJECT</button>
+    </div>
+    <label style="display:flex;align-items:center;gap:6px;margin-top:8px;font-size:10px;color:var(--ui-dim);cursor:pointer">
+      <input type="checkbox" id="exportLyricsOnly" style="width:auto;margin:0" />
+      LYRICS-ONLY EXPORT (black bg, layer in editor with screen blend)
+    </label>
     <div id="statusMsg" class="status-msg">ready.</div>
   </div>
 </aside>

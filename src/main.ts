@@ -318,6 +318,38 @@ function presetToBgMode(key: string): BgMode {
   }
 });
 
+document.getElementById("lyricsLoadCurrentBtn")!.addEventListener("click", () => {
+  const ta = document.getElementById("manualLyrics") as HTMLTextAreaElement;
+  ta.value = JSON.stringify(state.lyrics, null, 2);
+  flash("lyricsLoadCurrentBtn");
+});
+document.getElementById("moodLoadCurrentBtn")!.addEventListener("click", () => {
+  const ta = document.getElementById("moodJson") as HTMLTextAreaElement;
+  ta.value = JSON.stringify(state.mood, null, 2);
+  flash("moodLoadCurrentBtn");
+});
+
+document.getElementById("exportProjectBtn")!.addEventListener("click", () => {
+  const project = {
+    exportedAt: new Date().toISOString(),
+    audioFileName: state.audioFile?.name ?? null,
+    moodKey: state.moodKey,
+    intensity: state.intensity,
+    lyrics: state.lyrics,
+    mood:   state.mood,
+    moodPrompt: localStorage.getItem("vj.lastBrief") ?? "",
+  };
+  const blob = new Blob([JSON.stringify(project, null, 2)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  const stem = (state.audioFile?.name || "vj-project").replace(/\.[^.]+$/, "");
+  a.download = `${stem}.vj-project.json`;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  flash("exportProjectBtn");
+  setMessage("✓ project JSON downloaded.", "ok");
+});
+
 document.getElementById("manualLyricsBtn")!.addEventListener("click", () => {
   const txt = (document.getElementById("manualLyrics") as HTMLTextAreaElement).value;
   try {
@@ -557,8 +589,10 @@ document.getElementById("exportBtn")!.addEventListener("click", async () => {
   const ctrl = new AbortController();
   document.getElementById("exportCancel")!.onclick = () => ctrl.abort();
   try {
+    const lyricsOnly = (document.getElementById("exportLyricsOnly") as HTMLInputElement)?.checked === true;
     const blob = await recordWebm({
       audio, lyrics: state.lyrics, signal: ctrl.signal,
+      lyricsOnly,
       onProgress: (cur, dur) => {
         const pct = dur > 0 ? (cur / dur) * 100 : 0;
         (fill as HTMLElement).style.width = `${pct}%`;
@@ -567,7 +601,8 @@ document.getElementById("exportBtn")!.addEventListener("click", async () => {
     });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = `${state.audioFile.name.replace(/\.[^.]+$/,"")}.webm`;
+    const tag = lyricsOnly ? ".lyrics-only" : "";
+    a.download = `${state.audioFile.name.replace(/\.[^.]+$/,"")}${tag}.webm`;
     a.click();
     setMessage("✓ exported.", "ok");
   } catch (e) {
