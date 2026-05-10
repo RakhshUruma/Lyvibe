@@ -288,3 +288,44 @@ fireflies / birds / etc, ENCODE THEM as sceneElements entries. Otherwise pass []
 
 export const buildUserPrompt = (vibe: string): string =>
   `vibe: ${vibe.trim()}\n\nReturn the JSON now. Make sure the BACKGROUND is animated (bgKeyframes referenced from bgCssVariants).`;
+
+/**
+ * Slim system prompt used by QUICK mode. ~1k tokens (vs 5-6k for the full one).
+ * Drops examples, cheatsheets, palette references, and verbose schema docs.
+ * Still produces valid mood JSON with recipes + scene elements.
+ */
+export const MOOD_SYSTEM_PROMPT_QUICK = `Output one strict JSON object describing a "mood" for a kinetic-typography lyric video. JSON only — first char {, last char }, no prose, no fences.
+
+Required fields (compact reference):
+{
+  "bg": "#hex (dark)",
+  "accent": "#hex", "hot": "#hex", "cool": "#hex",
+  "font": "CSS family stack",
+  "weight": 100..900, "color": "#hex",
+  "blur": 0..4, "rgbSplit": 0..10, "panelBorder": "rgba(...)",
+  "tilt": 0..18, "glitchRate": 0..1, "ghostRate": 0..1,
+  "motionRate": 0..1, "bgSwapRate": 0..1,
+  "positionMode": "center" | "scatter",
+  "useTypewriter": true,
+  "typewriter": { "stagger": 0.02..0.15, "charDuration": "0.15s..0.7s", "reveal": "fade"|"drop"|"scale"|"blur"|"rise"|"shatter"|"type" },
+  "lineExtraCss": "text-shadow: ...; filter: ...;",
+  "bgCssVariants": [ "background:...; animation: <bgKfName> ...;", ... ],   // 2-3 entries
+  "bgKeyframes": [ {"name":"...","css":"0%,100%{...}50%{...}","duration":"...","easing":"...","iteration":"infinite"} ],
+  "entryRecipes":  [{"name":"<gen>","params":{...}}, ...],   // 2-3
+  "motionRecipes": [{"name":"<gen>","params":{...}}, ...],   // 1-2
+  "entryKeyframes": [], "motionKeyframes": [],
+  "sceneElements": [/* 0-3 SVG-path scene elements (no emoji) */]
+}
+
+Entry generators: fade, pop, slide(fromDir), spin, slam, drop, flip(axis), glitch, emerge, shatter, vibrate
+Motion generators: breathe, heartbeat, sway, bounce, shake(axis), drift, glitch, flutter, ripple, pulseGlow, flicker
+
+Rules:
+- useTypewriter MUST be true. Pick reveal style matching vibe.
+- Use recipes (NOT raw keyframes) for entry/motion.
+- bgCssVariants must reference bgKeyframes by name via "animation: <name> ...".
+- lineExtraCss MUST be non-empty (text-shadow + filter at minimum).
+- Match colors to vibe (horror=red+black, dream=pastel, cyber=cyan+magenta, etc.)
+- sceneElements: SVG path strings only, no emoji.
+
+Output the JSON now.`;

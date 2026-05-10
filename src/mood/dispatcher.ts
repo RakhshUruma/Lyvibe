@@ -4,7 +4,7 @@ import { normalizeMood } from "./normalize";
 import { generateTextAnthropic, type MoodGenOptions } from "./anthropic";
 import { generateTextRelay, probeRelay } from "./relay";
 import { generateTextGemini, generateMoodJsonGemini } from "./gemini";
-import { MOOD_SYSTEM_PROMPT } from "./prompt";
+import { MOOD_SYSTEM_PROMPT, MOOD_SYSTEM_PROMPT_QUICK } from "./prompt";
 import {
   BRIEF_SYSTEM_PROMPT,
   buildBriefUserPrompt,
@@ -162,23 +162,20 @@ export const generateMood = async (
   const errors: string[] = [];
   const t0 = performance.now();
 
-  // === QUICK mode — skip the brief, single LLM call.
-  //  Prefer Gemini first because it's the fastest path for a single short
-  //  call (5-8s typical). Anthropic API is next. Relay (claude CLI) is the
-  //  slowest path (20-60s) so it's a last-resort fallback in QUICK. ===
+  // === QUICK mode — single LLM call with a SLIM system prompt (~1k tokens
+  //  vs ~5k for the full one). Source order: anthropic → relay → gemini
+  //  (same as full path) so users with subscription via relay still get it.
+  //  The big speed-up here is the prompt size, not the source. ===
   if (opts.quick) {
     opts.onStage?.("json");
-    const userPrompt =
-      `vibe: ${vibe.trim()}\n\nReturn the mood JSON now. No brief intermediate. ` +
-      `Make sure useTypewriter is true, bgKeyframes are referenced from bgCssVariants, ` +
-      `and motionRecipes/entryRecipes are populated where appropriate.`;
-    const jsonRes = await tryQuickSources(status, errors, opts, {
-      gemini: () =>
-        generateMoodJsonGemini(MOOD_SYSTEM_PROMPT, userPrompt),
+    const userPrompt = `vibe: ${vibe.trim()}\n\nReturn the JSON now.`;
+    const jsonRes = await tryEachSource(status, errors, opts, {
       anthropic: () =>
-        generateTextAnthropic(MOOD_SYSTEM_PROMPT, userPrompt, opts, { maxTokens: 2400, thinking: false }),
+        generateTextAnthropic(MOOD_SYSTEM_PROMPT_QUICK, userPrompt, opts, { maxTokens: 2400, thinking: false }),
       relay: () =>
-        generateTextRelay(MOOD_SYSTEM_PROMPT, userPrompt, opts.signal),
+        generateTextRelay(MOOD_SYSTEM_PROMPT_QUICK, userPrompt, opts.signal),
+      gemini: () =>
+        generateMoodJsonGemini(MOOD_SYSTEM_PROMPT_QUICK, userPrompt),
     });
     const raw = extractJson(jsonRes.value);
     const mood = normalizeMood(JSON.parse(raw));
