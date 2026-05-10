@@ -317,15 +317,33 @@ Required fields (compact reference):
   "sceneElements": [/* 0-3 SVG-path scene elements (no emoji) */]
 }
 
-Entry generators: fade, pop, slide(fromDir), spin, slam, drop, flip(axis), glitch, emerge, shatter, vibrate
-Motion generators: breathe, heartbeat, sway, bounce, shake(axis), drift, glitch, flutter, ripple, pulseGlow, flicker
+Entry generators: fade, pop, slide(fromDir:"up"|"down"|"left"|"right"), spin, slam, drop, flip(axis:"X"|"Y"), glitch, emerge, shatter, vibrate
+Motion generators: breathe, heartbeat, sway, bounce, shake(axis:"x"|"y"|"both"), drift, glitch, flutter, ripple, pulseGlow, flicker
+
+# Scene elements (1..3 entries — REQUIRED, never empty unless vibe is purely abstract)
+SVG path quick library (viewBox "0 0 40 40"):
+- butterfly: "M20,12 C16,4 4,4 4,16 C4,22 12,24 20,20 C28,24 36,22 36,16 C36,4 24,4 20,12 Z"
+- snowflake: "M20,2 L20,38 M2,20 L38,20 M6,6 L34,34 M34,6 L6,34"
+- star4:     "M20,4 L24,16 L37,16 L26,24 L31,37 L20,29 L9,37 L14,24 L3,16 L16,16 Z"
+- petal:     "M20,4 C32,8 36,20 28,32 C24,36 16,36 12,32 C4,20 8,8 20,4 Z"
+- spark:     "M20,4 L22,18 L36,20 L22,22 L20,36 L18,22 L4,20 L18,18 Z"
+- leaf:      "M4,20 C12,4 28,4 36,20 C28,36 12,36 4,20 Z"
+- dot:       "M20,17 C21.6,17 23,18.4 23,20 C23,21.6 21.6,23 20,23 C18.4,23 17,21.6 17,20 C17,18.4 18.4,17 20,17 Z"
+
+Motion types: drift (L/R edge sweep + sine wobble — butterfly/leaves), rain (top→bottom — snow/ash), rise (bottom→top — sparks/bubbles), orbit (circle around centre — stars), flock (loose swarm — fireflies).
+
+Each scene element shape: { "shape":"svg", "svgPath":"<one of above OR custom>", "svgViewBox":"0 0 40 40", "fill":"#hex", "sizeRange":[minPx,maxPx], "count":1-30, "spawnRate":0.3-3, "motion":{"type":"drift|rain|rise|orbit|flock","durationRange":[s,s],"sineAmplitude":px,"sinePeriod":ms}, "selfAnim":{"property":"scale|scaleX|rotate","range":[a,b],"periodMs":ms}, "opacityRange":[0..1,0..1], "blendMode":"screen" }
+
+Pair vibe with shape:
+- horror→spark+dot, dream→butterfly+petal, cyber→spark+dot, snow→snowflake+dot,
+  forest→leaf+dot, flame→spark+dot, aqua→dot+circle, festive→star4+spark, etc.
 
 Rules:
 - useTypewriter MUST be true. Pick reveal style matching vibe.
 - Use recipes (NOT raw keyframes) for entry/motion.
 - bgCssVariants must reference bgKeyframes by name via "animation: <name> ...".
 - lineExtraCss MUST be non-empty (text-shadow + filter at minimum).
+- sceneElements MUST have 1-3 entries (SVG only, no emoji).
 - Match colors to vibe (horror=red+black, dream=pastel, cyber=cyan+magenta, etc.)
-- sceneElements: SVG path strings only, no emoji.
 
 Output the JSON now.`;
