@@ -2,73 +2,73 @@ import type { Mood, Keyframe } from "./schema";
 
 // ====================================================================
 // Reusable keyframe library
-// All transform keyframes preserve translate(-50%,-50%) to keep the line
+// All transform keyframes preserve translate(var(--xshift,-50%),-50%) to keep the line
 // centred on its (left,top) anchor — that's how lines.ts positions them.
 // ====================================================================
 
 const ENTRY: Record<string, Keyframe> = {
   fade: {
     name: "kfFade", duration: "0.6s", easing: "ease-out",
-    css: "0%{opacity:0;transform:translate(-50%,-50%) scale(0.92)} 100%{opacity:1;transform:translate(-50%,-50%) scale(1)}",
+    css: "0%{opacity:0;transform:translate(var(--xshift,-50%),-50%) scale(0.92)} 100%{opacity:1;transform:translate(var(--xshift,-50%),-50%) scale(1)}",
   },
   popIn: {
     name: "kfPopIn", duration: "0.55s", easing: "cubic-bezier(.2,.9,.25,1.4)",
-    css: "0%{opacity:0;transform:translate(-50%,-50%) scale(0.2) rotate(-12deg)} 60%{opacity:1;transform:translate(-50%,-50%) scale(1.12) rotate(2deg)} 100%{opacity:1;transform:translate(-50%,-50%) scale(1) rotate(0)}",
+    css: "0%{opacity:0;transform:translate(var(--xshift,-50%),-50%) scale(0.2) rotate(-12deg)} 60%{opacity:1;transform:translate(var(--xshift,-50%),-50%) scale(1.12) rotate(2deg)} 100%{opacity:1;transform:translate(var(--xshift,-50%),-50%) scale(1) rotate(0)}",
   },
   slideUp: {
     name: "kfSlideUp", duration: "0.65s", easing: "cubic-bezier(.16,1,.3,1)",
-    css: "0%{opacity:0;transform:translate(-50%,calc(-50% + 50px)) scale(0.95)} 100%{opacity:1;transform:translate(-50%,-50%) scale(1)}",
+    css: "0%{opacity:0;transform:translate(var(--xshift,-50%),calc(-50% + 50px)) scale(0.95)} 100%{opacity:1;transform:translate(var(--xshift,-50%),-50%) scale(1)}",
   },
   slideDown: {
     name: "kfSlideDown", duration: "0.65s", easing: "cubic-bezier(.16,1,.3,1)",
-    css: "0%{opacity:0;transform:translate(-50%,calc(-50% - 50px)) scale(0.95)} 100%{opacity:1;transform:translate(-50%,-50%) scale(1)}",
+    css: "0%{opacity:0;transform:translate(var(--xshift,-50%),calc(-50% - 50px)) scale(0.95)} 100%{opacity:1;transform:translate(var(--xshift,-50%),-50%) scale(1)}",
   },
   slideLeft: {
     name: "kfSlideLeft", duration: "0.55s", easing: "cubic-bezier(.16,1,.3,1)",
-    css: "0%{opacity:0;transform:translate(calc(-50% - 80px),-50%)} 100%{opacity:1;transform:translate(-50%,-50%)}",
+    css: "0%{opacity:0;transform:translate(calc(var(--xshift,-50%) - 80px),-50%)} 100%{opacity:1;transform:translate(var(--xshift,-50%),-50%)}",
   },
   slideRight: {
     name: "kfSlideRight", duration: "0.55s", easing: "cubic-bezier(.16,1,.3,1)",
-    css: "0%{opacity:0;transform:translate(calc(-50% + 80px),-50%)} 100%{opacity:1;transform:translate(-50%,-50%)}",
+    css: "0%{opacity:0;transform:translate(calc(var(--xshift,-50%) + 80px),-50%)} 100%{opacity:1;transform:translate(var(--xshift,-50%),-50%)}",
   },
   spin: {
     name: "kfSpin", duration: "0.7s", easing: "cubic-bezier(.2,.9,.25,1.2)",
-    css: "0%{opacity:0;transform:translate(-50%,-50%) rotate(-180deg) scale(0.3)} 100%{opacity:1;transform:translate(-50%,-50%) rotate(0) scale(1)}",
+    css: "0%{opacity:0;transform:translate(var(--xshift,-50%),-50%) rotate(-180deg) scale(0.3)} 100%{opacity:1;transform:translate(var(--xshift,-50%),-50%) rotate(0) scale(1)}",
   },
   slam: {
     name: "kfSlam", duration: "0.4s", easing: "cubic-bezier(.55,0,.35,1.6)",
-    css: "0%{opacity:0;transform:translate(-50%,-50%) scale(2.2);filter:blur(8px)} 70%{opacity:1;transform:translate(-50%,-50%) scale(0.95);filter:blur(0)} 100%{opacity:1;transform:translate(-50%,-50%) scale(1);filter:blur(0)}",
+    css: "0%{opacity:0;transform:translate(var(--xshift,-50%),-50%) scale(2.2);filter:blur(8px)} 70%{opacity:1;transform:translate(var(--xshift,-50%),-50%) scale(0.95);filter:blur(0)} 100%{opacity:1;transform:translate(var(--xshift,-50%),-50%) scale(1);filter:blur(0)}",
   },
   drop: {
     name: "kfDrop", duration: "0.7s", easing: "cubic-bezier(.55,0,.45,1.4)",
-    css: "0%{opacity:0;transform:translate(-50%,calc(-50% - 200px)) rotate(-8deg)} 60%{opacity:1;transform:translate(-50%,calc(-50% + 6px)) rotate(2deg)} 100%{opacity:1;transform:translate(-50%,-50%) rotate(0)}",
+    css: "0%{opacity:0;transform:translate(var(--xshift,-50%),calc(-50% - 200px)) rotate(-8deg)} 60%{opacity:1;transform:translate(var(--xshift,-50%),calc(-50% + 6px)) rotate(2deg)} 100%{opacity:1;transform:translate(var(--xshift,-50%),-50%) rotate(0)}",
   },
   flip: {
     name: "kfFlip", duration: "0.65s", easing: "cubic-bezier(.4,0,.2,1)",
-    css: "0%{opacity:0;transform:translate(-50%,-50%) perspective(600px) rotateY(90deg)} 100%{opacity:1;transform:translate(-50%,-50%) perspective(600px) rotateY(0)}",
+    css: "0%{opacity:0;transform:translate(var(--xshift,-50%),-50%) perspective(600px) rotateY(90deg)} 100%{opacity:1;transform:translate(var(--xshift,-50%),-50%) perspective(600px) rotateY(0)}",
   },
   glitchAppear: {
     name: "kfGlitchAppear", duration: "0.5s", easing: "steps(8)",
-    css: "0%{opacity:0;transform:translate(-50%,-50%) translateX(-6px);filter:hue-rotate(90deg)} 25%{opacity:1;transform:translate(-50%,-50%) translateX(8px);filter:hue-rotate(-30deg)} 50%{transform:translate(-50%,-50%) translateX(-4px);filter:hue-rotate(60deg)} 75%{transform:translate(-50%,-50%) translateX(2px);filter:hue-rotate(0)} 100%{opacity:1;transform:translate(-50%,-50%);filter:none}",
+    css: "0%{opacity:0;transform:translate(var(--xshift,-50%),-50%) translateX(-6px);filter:hue-rotate(90deg)} 25%{opacity:1;transform:translate(var(--xshift,-50%),-50%) translateX(8px);filter:hue-rotate(-30deg)} 50%{transform:translate(var(--xshift,-50%),-50%) translateX(-4px);filter:hue-rotate(60deg)} 75%{transform:translate(var(--xshift,-50%),-50%) translateX(2px);filter:hue-rotate(0)} 100%{opacity:1;transform:translate(var(--xshift,-50%),-50%);filter:none}",
   },
   emerge: {
     name: "kfEmerge", duration: "0.9s", easing: "ease-out",
-    css: "0%{opacity:0;transform:translate(-50%,-50%) scale(0.3);filter:blur(20px) brightness(0.3)} 70%{opacity:1;filter:blur(2px) brightness(1.3)} 100%{opacity:1;transform:translate(-50%,-50%) scale(1);filter:blur(0) brightness(1)}",
+    css: "0%{opacity:0;transform:translate(var(--xshift,-50%),-50%) scale(0.3);filter:blur(20px) brightness(0.3)} 70%{opacity:1;filter:blur(2px) brightness(1.3)} 100%{opacity:1;transform:translate(var(--xshift,-50%),-50%) scale(1);filter:blur(0) brightness(1)}",
   },
 };
 
 const MOTION: Record<string, Keyframe> = {
   breathe: {
     name: "kfBreathe", duration: "2.6s", easing: "ease-in-out", iteration: "infinite",
-    css: "0%,100%{transform:translate(-50%,-50%) scale(1)} 50%{transform:translate(-50%,-50%) scale(1.04)}",
+    css: "0%,100%{transform:translate(var(--xshift,-50%),-50%) scale(1)} 50%{transform:translate(var(--xshift,-50%),-50%) scale(1.04)}",
   },
   bounce: {
     name: "kfBounce", duration: "1.1s", easing: "ease-out", iteration: "infinite",
-    css: "0%,100%{transform:translate(-50%,-50%)} 40%{transform:translate(-50%,calc(-50% - 8px))}",
+    css: "0%,100%{transform:translate(var(--xshift,-50%),-50%)} 40%{transform:translate(var(--xshift,-50%),calc(-50% - 8px))}",
   },
   sway: {
     name: "kfSway", duration: "3.2s", easing: "ease-in-out", iteration: "infinite alternate",
-    css: "0%{transform:translate(-50%,-50%) rotate(-2deg)} 100%{transform:translate(-50%,-50%) rotate(2deg)}",
+    css: "0%{transform:translate(var(--xshift,-50%),-50%) rotate(-2deg)} 100%{transform:translate(var(--xshift,-50%),-50%) rotate(2deg)}",
   },
   flicker: {
     name: "kfFlicker", duration: "0.8s", easing: "steps(8)", iteration: "infinite",
@@ -76,15 +76,15 @@ const MOTION: Record<string, Keyframe> = {
   },
   jitter: {
     name: "kfJitter", duration: "0.18s", easing: "steps(4)", iteration: "infinite",
-    css: "0%,100%{transform:translate(-50%,-50%)} 25%{transform:translate(calc(-50% - 1px),calc(-50% + 1px))} 50%{transform:translate(calc(-50% + 1px),calc(-50% - 1px))} 75%{transform:translate(calc(-50% + 1px),calc(-50% + 1px))}",
+    css: "0%,100%{transform:translate(var(--xshift,-50%),-50%)} 25%{transform:translate(calc(var(--xshift,-50%) - 1px),calc(-50% + 1px))} 50%{transform:translate(calc(var(--xshift,-50%) + 1px),calc(-50% - 1px))} 75%{transform:translate(calc(var(--xshift,-50%) + 1px),calc(-50% + 1px))}",
   },
   heartbeat: {
     name: "kfHeartbeat", duration: "1.15s", easing: "ease-in-out", iteration: "infinite",
-    css: "0%,65%,100%{transform:translate(-50%,-50%) scale(1);filter:brightness(1)} 12%{transform:translate(-50%,-50%) scale(1.12);filter:brightness(1.4)} 28%{transform:translate(-50%,-50%) scale(1);filter:brightness(1)} 42%{transform:translate(-50%,-50%) scale(1.06);filter:brightness(1.2)}",
+    css: "0%,65%,100%{transform:translate(var(--xshift,-50%),-50%) scale(1);filter:brightness(1)} 12%{transform:translate(var(--xshift,-50%),-50%) scale(1.12);filter:brightness(1.4)} 28%{transform:translate(var(--xshift,-50%),-50%) scale(1);filter:brightness(1)} 42%{transform:translate(var(--xshift,-50%),-50%) scale(1.06);filter:brightness(1.2)}",
   },
   drift: {
     name: "kfDrift", duration: "5s", easing: "ease-in-out", iteration: "infinite alternate",
-    css: "0%{transform:translate(calc(-50% - 8px),calc(-50% + 4px))} 100%{transform:translate(calc(-50% + 8px),calc(-50% - 4px))}",
+    css: "0%{transform:translate(calc(var(--xshift,-50%) - 8px),calc(-50% + 4px))} 100%{transform:translate(calc(var(--xshift,-50%) + 8px),calc(-50% - 4px))}",
   },
   pulseGlow: {
     name: "kfPulseGlow", duration: "1.6s", easing: "ease-in-out", iteration: "infinite",
@@ -132,6 +132,7 @@ const base = (over: Partial<Mood>): Mood => ({
   motionKeyframes: m("breathe", "sway"),
   bgKeyframes: [],
   useTypewriter: false,
+  sceneElements: [],
   ...over,
 });
 
@@ -161,6 +162,19 @@ export const PRESETS: Record<string, Mood> = {
     entryKeyframes: k("fade", "slideUp", "emerge"),
     motionKeyframes: m("breathe", "drift", "sway"),
     bgKeyframes: bg("pulse", "drift"),
+    sceneElements: [{
+      shape: "svg",
+      svgPath: "M20,12 C16,4 4,4 4,16 C4,22 12,24 20,20 C28,24 36,22 36,16 C36,4 24,4 20,12 Z",
+      svgViewBox: "0 0 40 40",
+      fill: "#ffb3e6",
+      sizeRange: [28, 56],
+      count: 8,
+      spawnRate: 0.5,
+      motion: { type: "drift", durationRange: [6, 11], sineAmplitude: 60, sinePeriod: 1100 },
+      selfAnim: { property: "scaleX", range: [0.3, 1.0], periodMs: 220, easing: "ease-in-out" },
+      opacityRange: [0.7, 1.0],
+      blendMode: "screen",
+    }],
     bgCssVariants: [
       "background: radial-gradient(circle at 30% 30%, #5a3580 0%, #1a0e2a 60%); background-size: 200% 200%; animation: vjBgDrift 14s ease-in-out infinite alternate, vjBgPulse 5s ease-in-out infinite;",
       "background: radial-gradient(circle at 70% 70%, #8a4dab 0%, #1a0e2a 60%); background-size: 200% 200%; animation: vjBgDrift 18s ease-in-out infinite alternate;",

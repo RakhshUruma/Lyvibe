@@ -15,6 +15,7 @@ import { LyricEditor } from "./panel/lyric-editor";
 import { setMoodStatus, setAsrStatus, setMcpStatus, setMessage, emphasizePasteMood } from "./panel/status";
 import { recordWebm } from "./export/recorder";
 import { getAudioGraph, resumeAudioGraph } from "./audio-graph";
+import { ParticleEngine } from "./scene/particle-engine";
 
 // =====================================================================
 // boot
@@ -24,6 +25,9 @@ const audio  = document.getElementById("audio") as HTMLAudioElement;
 const bg     = new CanvasBg(document.getElementById("bgCanvas") as HTMLCanvasElement);
 const lines  = new LineRenderer();
 const transport = new Transport(audio);
+const particleLayer = document.getElementById("particleLayer")!;
+const particleEngine = new ParticleEngine(particleLayer);
+
 const editor = new LyricEditor(
   document.getElementById("editor")!,
   (t) => { audio.currentTime = t; },
@@ -121,6 +125,7 @@ intensityEl.addEventListener("input", () => {
   // re-apply current mood with new intensity (no full re-build of CSS — vars only need scaled rates)
   const scaled = scaleMood(state.mood, state.intensity);
   applyMood(scaled); lines.setMood(scaled);
+  particleEngine.setElements(scaled.sceneElements ?? []);
 });
 intensityEl.addEventListener("change", () => {
   try { localStorage.setItem("vj.intensity", String(state.intensity)); } catch {}
@@ -154,8 +159,9 @@ document.getElementById("moodGenBtn")!.addEventListener("click", async () => {
     const customOpt = document.getElementById("customOption") as HTMLOptionElement;
     customOpt.hidden = false;
     (document.getElementById("presetSelect") as HTMLSelectElement).value = "custom";
+    clearAnchors();
     const scaled = scaleMood(r.mood, state.intensity);
-    applyMood(scaled); lines.setMood(scaled);
+    applyMood(scaled); lines.setMood(scaled); particleEngine.setElements(scaled.sceneElements ?? []);
     document.getElementById("moodMeta")!.textContent = `custom · ${r.status.source}`;
     const briefSnippet = (r.brief || capturedBrief).replace(/\s+/g, " ").slice(0, 80);
     setMessage(`✓ via ${r.status.source} in ${r.status.ms||0}ms · "${briefSnippet}…"`, "ok");
@@ -183,8 +189,9 @@ document.getElementById("moodApplyBtn")!.addEventListener("click", () => {
     const customOpt = document.getElementById("customOption") as HTMLOptionElement;
     customOpt.hidden = false;
     (document.getElementById("presetSelect") as HTMLSelectElement).value = "custom";
+    clearAnchors();
     const scaled = scaleMood(m, state.intensity);
-    applyMood(scaled); lines.setMood(scaled);
+    applyMood(scaled); lines.setMood(scaled); particleEngine.setElements(scaled.sceneElements ?? []);
     document.getElementById("moodMeta")!.textContent = "custom · pasted";
     setMessage("✓ pasted mood applied — saved as CUSTOM preset", "ok");
     emphasizePasteMood(false);
@@ -197,6 +204,20 @@ document.getElementById("moodApplyBtn")!.addEventListener("click", () => {
     setMessage(`✗ JSON parse: ${e instanceof Error ? e.message : e}`, "err");
   }
 });
+
+// Wipe per-segment user-pinned anchors. Called when a fresh mood is
+// generated/applied — the new mood probably wants its own positioning, and
+// holding stale anchors locks lines into the previous look.
+function clearAnchors(): void {
+  let touched = 0;
+  for (const seg of state.lyrics.segments) {
+    if (seg.anchorX != null || seg.anchorY != null || seg.anchorR != null) {
+      delete seg.anchorX; delete seg.anchorY; delete seg.anchorR;
+      touched++;
+    }
+  }
+  if (touched) persistLyrics();
+}
 
 // brief visual feedback on a button (flash + scale)
 function flash(id: string): void {
@@ -224,6 +245,7 @@ function applyPreset(key: string) {
   state.mood = m; state.moodKey = key;
   const scaled = scaleMood(m, state.intensity);
   applyMood(scaled); lines.setMood(scaled);
+  particleEngine.setElements(scaled.sceneElements ?? []);
   document.getElementById("moodMeta")!.textContent = key;
   bg.setMode(presetToBgMode(key));
   try { localStorage.setItem("vj.lastPreset", key); } catch {}

@@ -33,14 +33,41 @@ Cover these axes specifically:
    - What kind of subtle living motion — breath, tremor, sway, drift, heartbeat?
    - Intensity (barely noticeable vs unsettling)
 
-5. Atmosphere and connective tissue
+5. Scene elements (independent particles flying/falling/orbiting)
+   This is where the brief gets concrete. If the vibe suggests literal entities
+   (butterflies, snow, fireflies, sparks, petals, birds, stars, leaves, ash,
+   bubbles), DESCRIBE THEM EXPLICITLY:
+   - What shape (butterfly silhouette / hexagon snowflake / round dot / leaf)
+   - Roughly how many on screen (e.g. "8 butterflies", "60 snowflakes")
+   - Spawn pattern (from edges / from above / from a center point / static)
+   - Motion type (drift horizontally with sine wobble / rain straight down /
+     rise upward / orbit around centre / follow a curving path / flock)
+   - Per-instance self-animation (e.g. "wings flap by toggling scaleX between
+     0.3 and 1.0 every 220ms" for butterflies)
+   - Color, size range, opacity, blend mode (if any)
+   - If a curving path makes sense, sketch it as bezier intuition like
+     "S-curve from lower-left up to upper-right, weaving"
+   If the vibe doesn't suggest discrete entities, you can omit this section.
+
+6. Atmosphere and connective tissue
    - Mood adjectives (tense, weightless, euphoric, sacred, manic)
    - What kind of glitch / flicker / ghost echoes (if any)
    - Whether tilt should be straight or askew
 
-Length: 180-320 words. Flowing prose, not bullet points (you may use line breaks between the 5 sections but no headers, no markdown). Be specific with numbers when they matter (e.g., "1.1 second pulse, mimicking a slow heartbeat at 55 bpm").
+Length: 220-380 words. Flowing prose, not bullet points (you may use line
+breaks between sections but no headers, no markdown). Be specific with
+numbers when they matter (e.g., "1.1 second pulse mimicking a slow heartbeat
+at 55 bpm", "8 butterflies, scaleX 0.3↔1.0 at 220ms").
 
-Match the vibe semantically; if it's "蝶が舞ってる感じ" (butterfly fluttering), think pastels, soft asymmetric drift, slow tilt-sway, gentle scale breath — not glitch and scanlines.
+Match the vibe semantically. Examples:
+- "蝶が舞ってる感じ ピンク" → 8 pastel-pink butterflies drifting horizontally,
+  sine wobble amp 60px period 1100ms, wing flap scaleX 0.3↔1.0 at 220ms,
+  slow sway on the lyrics, soft drifting bg, no glitch.
+- "ホラー鼓動" → red+black, no scene particles, heartbeat pulse 1.1s, glitch
+  ghost echoes, slam entries.
+- "雪が降る夜" → 60 snowflakes (small white dots), rain motion straight down
+  with mild horizontal sine sway, orbit around centre very slowly, type-
+  writer entries, dark navy bg.
 
 Output ONLY the brief. No preamble, no closing remarks.`;
 

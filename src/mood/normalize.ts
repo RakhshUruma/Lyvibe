@@ -1,4 +1,5 @@
 import type { Mood, Keyframe } from "./schema";
+import type { SceneElement } from "../scene/schema";
 
 const clamp = (v: unknown, lo: number, hi: number, d: number): number => {
   const n = typeof v === "number" ? v : parseFloat(String(v));
@@ -71,7 +72,58 @@ export const normalizeMood = (raw: any): Mood => {
     motionKeyframes: motion,
     bgKeyframes:    bgKf,
     useTypewriter:  raw?.useTypewriter === true,
+    sceneElements:  Array.isArray(raw?.sceneElements)
+      ? raw.sceneElements.map(normSceneElement).filter(Boolean) as SceneElement[]
+      : [],
   };
+};
+
+const normSceneElement = (raw: any): SceneElement | null => {
+  if (!raw || typeof raw !== "object") return null;
+  const shape = raw.shape === "emoji" ? "emoji" : "svg";
+  const motionType = ["drift","rain","rise","orbit","path","flock"].includes(raw?.motion?.type)
+    ? raw.motion.type : "drift";
+  const sizeRange: [number, number] = Array.isArray(raw.sizeRange) && raw.sizeRange.length === 2
+    ? [Number(raw.sizeRange[0]) || 24, Number(raw.sizeRange[1]) || 48]
+    : [24, 48];
+  const durationRange: [number, number] = Array.isArray(raw.motion?.durationRange) && raw.motion.durationRange.length === 2
+    ? [Math.max(0.5, Number(raw.motion.durationRange[0]) || 4), Math.max(0.5, Number(raw.motion.durationRange[1]) || 8)]
+    : [4, 8];
+  const count = Math.max(1, Math.min(80, Math.round(Number(raw.count) || 6)));
+  const out: SceneElement = {
+    shape,
+    svgPath: typeof raw.svgPath === "string" ? raw.svgPath : undefined,
+    svgViewBox: typeof raw.svgViewBox === "string" ? raw.svgViewBox : undefined,
+    emoji: typeof raw.emoji === "string" ? raw.emoji.slice(0, 4) : undefined,
+    fill: typeof raw.fill === "string" ? raw.fill : undefined,
+    sizeRange,
+    count,
+    spawnRate: typeof raw.spawnRate === "number" && raw.spawnRate > 0 ? raw.spawnRate : undefined,
+    motion: {
+      type: motionType,
+      pathD: typeof raw.motion?.pathD === "string" ? raw.motion.pathD : undefined,
+      durationRange,
+      sineAmplitude: typeof raw.motion?.sineAmplitude === "number" ? raw.motion.sineAmplitude : undefined,
+      sinePeriod:    typeof raw.motion?.sinePeriod === "number"    ? raw.motion.sinePeriod    : undefined,
+      rotateMode:    ["follow-tangent","fixed","spin"].includes(raw.motion?.rotateMode) ? raw.motion.rotateMode : undefined,
+    },
+    selfAnim: raw.selfAnim && typeof raw.selfAnim === "object" && Array.isArray(raw.selfAnim.range) && raw.selfAnim.range.length === 2 ? {
+      property: ["scaleX","scaleY","scale","rotate"].includes(raw.selfAnim.property) ? raw.selfAnim.property : "scale",
+      range: [Number(raw.selfAnim.range[0]) || 0.8, Number(raw.selfAnim.range[1]) || 1.2],
+      periodMs: Math.max(60, Number(raw.selfAnim.periodMs) || 600),
+      easing: typeof raw.selfAnim.easing === "string" ? raw.selfAnim.easing : "ease-in-out",
+    } : undefined,
+    opacityRange: Array.isArray(raw.opacityRange) && raw.opacityRange.length === 2
+      ? [Number(raw.opacityRange[0]) || 0.6, Number(raw.opacityRange[1]) || 1]
+      : undefined,
+    blendMode: typeof raw.blendMode === "string" ? raw.blendMode : undefined,
+  };
+  // sanity: svg without path → emoji fallback so engine doesn't render nothing
+  if (out.shape === "svg" && !out.svgPath) {
+    out.shape = "emoji"; out.emoji = out.emoji || "✨";
+  }
+  if (out.shape === "emoji" && !out.emoji) out.emoji = "✨";
+  return out;
 };
 
 /**

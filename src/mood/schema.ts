@@ -1,3 +1,6 @@
+import type { SceneElement } from "../scene/schema";
+export type { SceneElement };
+
 export type Keyframe = {
   name: string;
   css: string;        // body of @keyframes (without "@keyframes name {}" wrapper)
@@ -43,6 +46,11 @@ export type Mood = {
   /** When true, each character animates in one-by-one (typewriter). When
    *  false, the whole line uses entryKeyframes as a single block. */
   useTypewriter: boolean;
+
+  /** Discrete entities (butterflies, snow, sparks, birds, …) that fly /
+   *  fall / orbit on the stage independently of the lyric line.
+   *  Empty array (default) = no scene particles. */
+  sceneElements: SceneElement[];
 };
 
 export const MOOD_JSON_SCHEMA = {
@@ -51,7 +59,7 @@ export const MOOD_JSON_SCHEMA = {
     "bg","accent","hot","cool","font","weight","color",
     "blur","rgbSplit","panelBorder","tilt","glitchRate","ghostRate",
     "motionRate","bgSwapRate","positionMode","bgCssVariants",
-    "lineExtraCss","entryKeyframes","motionKeyframes","useTypewriter",
+    "lineExtraCss","entryKeyframes","motionKeyframes","useTypewriter","sceneElements",
   ],
   properties: {
     bg: { type: "string" }, accent: { type: "string" },
@@ -100,5 +108,46 @@ export const MOOD_JSON_SCHEMA = {
       },
     },
     useTypewriter: { type: "boolean" },
+    sceneElements: {
+      type: "array", minItems: 0, maxItems: 6,
+      items: {
+        type: "object",
+        required: ["shape","sizeRange","count","motion"],
+        properties: {
+          shape: { type: "string", enum: ["svg", "emoji"] },
+          svgPath: { type: "string" },
+          svgViewBox: { type: "string" },
+          emoji: { type: "string" },
+          fill: { type: "string" },
+          sizeRange: { type: "array", items: { type: "number" }, minItems: 2, maxItems: 2 },
+          count: { type: "number" },
+          spawnRate: { type: "number" },
+          motion: {
+            type: "object",
+            required: ["type","durationRange"],
+            properties: {
+              type: { type: "string", enum: ["drift","rain","rise","orbit","path","flock"] },
+              pathD: { type: "string" },
+              durationRange: { type: "array", items: { type: "number" }, minItems: 2, maxItems: 2 },
+              sineAmplitude: { type: "number" },
+              sinePeriod: { type: "number" },
+              rotateMode: { type: "string", enum: ["follow-tangent","fixed","spin"] },
+            },
+          },
+          selfAnim: {
+            type: "object",
+            required: ["property","range","periodMs"],
+            properties: {
+              property: { type: "string", enum: ["scaleX","scaleY","scale","rotate"] },
+              range: { type: "array", items: { type: "number" }, minItems: 2, maxItems: 2 },
+              periodMs: { type: "number" },
+              easing: { type: "string" },
+            },
+          },
+          opacityRange: { type: "array", items: { type: "number" }, minItems: 2, maxItems: 2 },
+          blendMode: { type: "string" },
+        },
+      },
+    },
   },
 } as const;

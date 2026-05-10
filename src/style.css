@@ -58,6 +58,11 @@ html, body {
   isolation: isolate;
   pointer-events: none;
 }
+#particleLayer {
+  position: absolute; inset: 0; z-index: 30;
+  pointer-events: none;
+  overflow: hidden;
+}
 #lyricsLayer {
   position: absolute !important; inset: 0 !important;
   z-index: 50 !important;
@@ -71,21 +76,16 @@ html, body {
 /* ===== Lyric line ===== */
 .line {
   position: absolute;
-  transform: translate(-50%,-50%) rotate(var(--tilt, 0deg));
+  transform: translate(var(--xshift, -50%), -50%) rotate(var(--tilt, 0deg));
   font-family: var(--line-font);
   font-weight: var(--line-weight);
   color: var(--line-color);
   filter: blur(var(--line-blur));
   letter-spacing: 0.04em;
-  /* fit-to-screen: max-width depends on horizontal anchor (--ax = x%).
-     Line is centered via translate(-50%), so available room on each side
-     is min(ax, 100-ax) — multiplied by 2 to convert to width. */
-  --ax: 50;
-  max-width: min(
-    calc(var(--ax) * 2vw),
-    calc((100 - var(--ax)) * 2vw),
-    92vw
-  );
+  /* Lines always centre on their (left, top) anchor via translate(-50%, -50%);
+     lines.ts picks/slides x so the line fits within the viewport, instead of
+     fighting wrap-vs-anchor. Cap is 92vw — leaves a 4vw breathing margin. */
+  max-width: 92vw;
   white-space: pre-wrap;
   word-break: keep-all;       /* don't split Japanese mid-word */
   overflow-wrap: anywhere;    /* but break Latin tokens if absolutely needed */

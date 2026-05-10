@@ -46,7 +46,35 @@ Given a vibe description, return ONE JSON object describing a "mood".
   "bgKeyframes": [              // 1..3 entries; animations the BACKGROUND uses
     { "name": "...", "css": "0%{...}...100%{...}", "duration": "...", "easing": "...", "iteration": "infinite" }
   ],
-  "useTypewriter": boolean      // true = each character pops in one-by-one (stagger). false = whole line uses entryKeyframes
+  "useTypewriter": boolean,     // true = each character pops in one-by-one (stagger). false = whole line uses entryKeyframes
+  "sceneElements": [            // 0..6 entries — see "Scene elements" section below. EMPTY array if vibe is purely abstract.
+    {
+      "shape": "svg" | "emoji",
+      "svgPath": "...",           // SVG path "d", drawn at viewBox 0 0 40 40 unless svgViewBox provided. REQUIRED if shape=svg.
+      "svgViewBox": "0 0 40 40",  // optional
+      "emoji": "🦋",              // REQUIRED if shape=emoji (single grapheme)
+      "fill": "#hex",             // SVG fill color
+      "sizeRange": [number, number],   // px
+      "count": number,            // simultaneous max (1-40)
+      "spawnRate": number,        // per-second; omit for static-count (all spawn at start)
+      "motion": {
+        "type": "drift" | "rain" | "rise" | "orbit" | "path" | "flock",
+        "pathD": "M0,50 C20,10 80,90 100,50",  // ONLY for type=path; coordinate space is 0..100 mapped to viewport
+        "durationRange": [number, number],     // sec for one traversal/orbit
+        "sineAmplitude": number,               // px wobble amplitude (drift/rain/rise/flock)
+        "sinePeriod":    number,               // ms wobble period
+        "rotateMode":    "follow-tangent" | "fixed" | "spin"
+      },
+      "selfAnim": {                // optional per-instance shape animation
+        "property": "scaleX" | "scaleY" | "scale" | "rotate",
+        "range": [number, number],
+        "periodMs": number,
+        "easing": "ease-in-out"
+      },
+      "opacityRange": [number, number],
+      "blendMode": "screen" | "overlay" | "lighten" | ...
+    }
+  ]
 }
 
 # When to use useTypewriter
@@ -112,6 +140,65 @@ ALWAYS preserve translate(-50%, -50%) on transforms (lines are positioned with t
 - horror/heartbeat → red+black, slow vjBgPulse 1.1s mimicking heartbeat, drop+slam entries
 
 NEVER include comments inside the JSON.
+
+# Scene elements — when the brief mentions discrete entities
+
+If the brief talks about butterflies / snow / sparks / petals / stars / leaves /
+fireflies / birds / etc, ENCODE THEM as sceneElements entries. Otherwise pass [].
+
+## SVG path examples (drawn in 0 0 40 40 viewBox)
+- Butterfly:  "M20,12 C16,4 4,4 4,16 C4,22 12,24 20,20 C28,24 36,22 36,16 C36,4 24,4 20,12 Z"
+- Snowflake:  "M20,2 L20,38 M2,20 L38,20 M6,6 L34,34 M34,6 L6,34 M14,8 L20,2 L26,8 M14,32 L20,38 L26,32"
+- Star:       "M20,4 L24,16 L37,16 L26,24 L31,37 L20,29 L9,37 L14,24 L3,16 L16,16 Z"
+- Petal:      "M20,4 C32,8 36,20 28,32 C24,36 16,36 12,32 C4,20 8,8 20,4 Z"
+- Spark:      "M20,4 L22,18 L36,20 L22,22 L20,36 L18,22 L4,20 L18,18 Z"
+- Leaf:       "M4,20 C12,4 28,4 36,20 C28,36 12,36 4,20 Z"
+- Bubble:     "M20,4 C28,4 36,12 36,20 C36,28 28,36 20,36 C12,36 4,28 4,20 C4,12 12,4 20,4 Z"
+- Bird (V):   "M4,20 L20,12 L36,20 L20,16 Z"
+- Firefly dot:"M20,15 C22,15 25,17 25,20 C25,23 22,25 20,25 C17,25 15,22 15,20 C15,17 17,15 20,15 Z"
+
+## Motion type cheatsheet
+- "drift":  spawns at left/right edge, sweeps across, sine wobble vertical. Good for butterflies, leaves, paper.
+- "rain":   spawns at top, falls to bottom, mild horizontal wobble. Good for snow, ash, rain.
+- "rise":   spawns at bottom, floats upward, mild horizontal wobble. Good for sparks, embers, bubbles.
+- "orbit":  circles around screen centre. Good for stars, planets, spell circles.
+- "path":   follows custom SVG bezier; coords are 0..100 mapped to viewport. Use rotateMode "follow-tangent" for fish/birds tracing a curve.
+- "flock":  loose swarm centered on stage, semi-random. Good for fireflies / dust.
+
+## Path-D examples for type=path (0..100 viewport coords)
+- S-curve LL→UR:    "M-5,90 C20,40 70,80 105,15"
+- Figure-8:         "M50,20 C20,40 80,40 50,60 C20,80 80,80 50,20 Z"
+- Diagonal swoop:   "M-5,80 Q50,20 105,70"
+
+## Self-animation cheatsheet
+- Butterfly wings: { property:"scaleX", range:[0.3, 1.0], periodMs:220, easing:"ease-in-out" }
+- Snow twinkle:    { property:"scale",  range:[0.85, 1.15], periodMs:1500 }
+- Star pulse:      { property:"scale",  range:[0.6, 1.2], periodMs:1100, easing:"ease-out" }
+- Bird flap:       { property:"scaleY", range:[0.5, 1.0], periodMs:280 }
+- Firefly breath:  { property:"scale",  range:[0.7, 1.0], periodMs:1800 }
+
+## Worked example — vibe "蝶が舞う、淡いピンク"
+{
+  ...colors and keyframes (pastel pinks, drifting bg)...,
+  "sceneElements": [{
+    "shape":"svg",
+    "svgPath":"M20,12 C16,4 4,4 4,16 C4,22 12,24 20,20 C28,24 36,22 36,16 C36,4 24,4 20,12 Z",
+    "fill":"#ffb3e6",
+    "sizeRange":[28, 48],
+    "count":8,
+    "spawnRate":0.6,
+    "motion":{ "type":"drift", "durationRange":[5,9], "sineAmplitude":60, "sinePeriod":1100 },
+    "selfAnim":{ "property":"scaleX", "range":[0.3, 1.0], "periodMs":220, "easing":"ease-in-out" },
+    "opacityRange":[0.7, 1.0],
+    "blendMode":"screen"
+  }]
+}
+
+## Rules
+- 0 to 6 sceneElements per mood; pass [] if abstract vibe.
+- count under 40, sizeRange under 200px, durationRange in seconds, sinePeriod in ms.
+- Prefer SVG with svgPath for shapes that should look intentional (butterfly, leaf, star);
+  emoji shape is acceptable for casual feels (🌸 ❄ ✨ 🦋 ⭐).
 `;
 
 export const buildUserPrompt = (vibe: string): string =>

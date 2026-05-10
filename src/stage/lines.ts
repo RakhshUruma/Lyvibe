@@ -27,39 +27,63 @@ export class LineRenderer {
     const line = document.createElement("div");
     line.className = "line";
     if (idx != null) line.dataset.segIdx = String(idx);
-    // user-pinned values win over random
     const tilt = seg.anchorR != null ? seg.anchorR : (Math.random() * 2 - 1) * this.mood.tilt;
     line.style.setProperty("--tilt", `${tilt}deg`);
-    const rand = this.position(this.mood.positionMode, seg.text.length);
-    const x = seg.anchorX ?? rand.x;
-    const y = seg.anchorY ?? rand.y;
-    line.style.left = `${x}%`;
-    line.style.top  = `${y}%`;
-    // tell CSS where on-screen the line is, so max-width can shrink near edges
-    line.style.setProperty("--ax", String(x));
 
     // size scaling (text length based ±25%)
     const baseSize = 64;
-    const lengthScale = Math.max(0.5, Math.min(1.5, 16 / Math.max(1, seg.text.length)));
+    const longestLine = seg.text.split("\n").reduce((m, l) => Math.max(m, [...l].length), 1);
+    const lengthScale = Math.max(0.5, Math.min(1.5, 16 / Math.max(1, longestLine)));
     const size = baseSize * (0.85 + Math.random() * 0.3) * lengthScale;
     line.style.fontSize = `${size}px`;
 
-    // 1 char = 1 span (so per-char anim is possible)
-    const chars = [...seg.text];      // grapheme-aware split
-    chars.forEach((c, i) => {
+    // 1 char = 1 span (so per-char anim is possible).
+    // User-input "\n" inside seg.text is preserved as <br> so manual line
+    // breaks survive the per-char split.
+    const visible = [...seg.text].filter(c => c !== "\n");
+    const total = visible.length;
+    let visIdx = 0;
+    for (const c of [...seg.text]) {
+      if (c === "\n") {
+        line.appendChild(document.createElement("br"));
+        continue;
+      }
       const s = document.createElement("span");
       s.className = "ch";
       s.textContent = c;
-      s.style.setProperty("--ch-i", String(i));
-      s.style.setProperty("--ch-n", String(chars.length));
+      s.style.setProperty("--ch-i", String(visIdx));
+      s.style.setProperty("--ch-n", String(total));
       line.appendChild(s);
-    });
+      visIdx++;
+    }
+    const chars = visible;     // used below for typewriter timing
+
+    // === append BEFORE positioning so we can measure actual width ====
+    // .line opacity:0 by default → no flash while we're still positioning.
+    this.layer.appendChild(line);
+    const measuredVw = (line.offsetWidth / Math.max(1, window.innerWidth)) * 100;
+
+    // === position resolution =========================================
+    const rand = this.position(this.mood.positionMode, seg.text.length);
+    const baseX = seg.anchorX ?? rand.x;
+    const y     = seg.anchorY ?? rand.y;
+    let x = baseX;
+    if (seg.anchorX == null) {
+      const halfVw = measuredVw / 2;
+      const margin = 2;
+      const minX = halfVw + margin;
+      const maxX = 100 - halfVw - margin;
+      x = (minX < maxX) ? Math.max(minX, Math.min(maxX, baseX)) : 50;
+    }
+    line.style.left = `${x}%`;
+    line.style.top  = `${y}%`;
+    line.style.setProperty("--ax", String(x));
 
     // entry: typewriter (per-char stagger) OR block (whole-line)
     const entry = pick(this.mood.entryKeyframes);
     if (this.mood.useTypewriter) {
       ensureTypewriterKf();
-      const stagger = Math.min(0.06, 0.7 / Math.max(1, chars.length));   // sec per char
+      const stagger = Math.min(0.06, 0.7 / Math.max(1, chars.length));
       const each    = "0.42s";
       const lineEls = line.querySelectorAll(".ch");
       lineEls.forEach((el, i) => {
@@ -67,12 +91,10 @@ export class LineRenderer {
         e.style.animation = `vjChType ${each} ease-out both`;
         e.style.animationDelay = `${(i * stagger).toFixed(3)}s`;
       });
-      // line stays static (centring transform unchanged); chars do all the entry.
     } else if (entry) {
       line.style.animation = `${entry.name} ${entry.duration} ${entry.easing} ${entry.iteration ?? "1"} both`;
     }
 
-    // motion KF (additive — applied to the line, runs alongside entry)
     if (Math.random() < this.mood.motionRate) {
       const motion = pick(this.mood.motionKeyframes);
       if (motion) {
@@ -81,14 +103,10 @@ export class LineRenderer {
       }
     }
 
-    this.layer.appendChild(line);
     requestAnimationFrame(() => line.classList.add("shown"));
     this.active = line;
 
-    // ghost echo
     if (Math.random() < this.mood.ghostRate) this.ghost(seg.text, x, y, size, tilt);
-
-    // glitch
     if (Math.random() < this.mood.glitchRate) this.glitch(line);
   }
 
