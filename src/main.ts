@@ -17,6 +17,7 @@ import { recordWebm } from "./export/recorder";
 import { getAudioGraph, resumeAudioGraph } from "./audio-graph";
 import { ParticleEngine } from "./scene/particle-engine";
 import { audioState } from "./audio-state";
+import { analyzeVibe } from "./mood/vibe-analyze";
 
 // =====================================================================
 // boot
@@ -364,6 +365,27 @@ document.getElementById("exportProjectBtn")!.addEventListener("click", () => {
   URL.revokeObjectURL(a.href);
   flash("exportProjectBtn");
   setMessage("✓ project JSON downloaded.", "ok");
+});
+
+document.getElementById("suggestVibeBtn")!.addEventListener("click", async () => {
+  if (!state.audioFile) { setMessage("choose an audio file first.", "err"); return; }
+  const btn = document.getElementById("suggestVibeBtn") as HTMLButtonElement;
+  btn.disabled = true; btn.classList.add("shimmer");
+  setMessage("◐ analyzing vibe from audio...", "busy");
+  try {
+    const vibe = await analyzeVibe(state.audioFile);
+    const ta = document.getElementById("moodPrompt") as HTMLTextAreaElement;
+    ta.value = vibe;
+    // open the "Generate from prompt" details so the user sees what was filled
+    const det = ta.closest("details") as HTMLDetailsElement | null;
+    if (det) det.open = true;
+    setMessage(`✓ vibe suggested: "${vibe.slice(0, 60)}${vibe.length > 60 ? "…" : ""}"`, "ok");
+    flash("suggestVibeBtn");
+  } catch (e) {
+    setMessage(`✗ vibe analyze: ${e instanceof Error ? e.message : e}`, "err");
+  } finally {
+    btn.disabled = false; btn.classList.remove("shimmer");
+  }
 });
 
 document.getElementById("manualLyricsBtn")!.addEventListener("click", () => {
