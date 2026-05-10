@@ -82,10 +82,19 @@ html, body {
   color: var(--line-color);
   filter: blur(var(--line-blur));
   letter-spacing: 0.04em;
-  /* Lines always centre on their (left, top) anchor via translate(-50%, -50%);
-     lines.ts picks/slides x so the line fits within the viewport, instead of
-     fighting wrap-vs-anchor. Cap is 92vw — leaves a 4vw breathing margin. */
-  max-width: 92vw;
+  /* Position-aware max-width:
+     --ax is the line's x position in % (set per line by JS).
+     Symmetric around centre — at x=50 the line can be up to 92vw, at x=10
+     or x=90 only ~18vw. Multiplier 1.84 = 2.0 minus 2*4vw breathing margin
+     for text-shadow / rgb-split / tilt overflow.
+     This makes long lines wrap naturally at edges (multi-line stack),
+     instead of being shoved back to centre. */
+  --ax: 50;
+  max-width: min(
+    calc(var(--ax) * 1.84vw),
+    calc((100 - var(--ax)) * 1.84vw),
+    92vw
+  );
   white-space: pre-wrap;
   word-break: keep-all;       /* don't split Japanese mid-word */
   overflow-wrap: anywhere;    /* but break Latin tokens if absolutely needed */

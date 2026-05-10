@@ -164,6 +164,14 @@ document.getElementById("moodGenBtn")!.addEventListener("click", async () => {
     applyMood(scaled); lines.setMood(scaled); particleEngine.setElements(scaled.sceneElements ?? []);
     repaintCurrentLine();
     document.getElementById("moodMeta")!.textContent = `custom · ${r.status.source}`;
+    // Push the generated mood JSON into the paste textarea so the user
+    // can hand-edit it afterwards. <details> auto-opens for visibility.
+    const moodJsonEl = document.getElementById("moodJson") as HTMLTextAreaElement;
+    if (moodJsonEl) {
+      moodJsonEl.value = JSON.stringify(r.mood, null, 2);
+      const det = moodJsonEl.closest("details") as HTMLDetailsElement | null;
+      if (det) det.open = true;
+    }
     const briefSnippet = (r.brief || capturedBrief).replace(/\s+/g, " ").slice(0, 80);
     setMessage(`✓ via ${r.status.source} in ${r.status.ms||0}ms · "${briefSnippet}…"`, "ok");
     try {
@@ -416,6 +424,12 @@ stage.addEventListener("pointerdown", (e) => {
   const cxPx0 = elRect.left + elRect.width  / 2;
   const cyPx0 = elRect.top  + elRect.height / 2;
 
+  // The CSS max-width formula uses --ax to shrink the box near edges, so
+  // the line wraps naturally on both sides (no off-screen bleed). All we
+  // need is to keep the centre on stage.
+  const clampX = (v: number) => Math.max(2, Math.min(98, v));
+  const clampY = (v: number) => Math.max(4, Math.min(96, v));
+
   // initial state
   const startX = e.clientX, startY = e.clientY;
   const initAX = ((cxPx0 - stageRect.left) / stageRect.width)  * 100;
@@ -430,8 +444,8 @@ stage.addEventListener("pointerdown", (e) => {
     const dt = Math.max(1, t - lastT);
     const nx = initAX + ((mv.clientX - startX) / stageRect.width)  * 100;
     const ny = initAY + ((mv.clientY - startY) / stageRect.height) * 100;
-    curAX = clamp(nx, 2, 98);
-    curAY = clamp(ny, 2, 98);
+    curAX = clampX(nx);
+    curAY = clampY(ny);
     el.style.left = `${curAX}%`;
     el.style.top  = `${curAY}%`;
     el.style.setProperty("--ax", String(curAX));
@@ -460,8 +474,8 @@ stage.addEventListener("pointerdown", (e) => {
         return;
       }
       velPxX *= decay; velPxY *= decay;
-      curAX = clamp(curAX + (velPxX * FRAME / stageRect.width)  * 100, 2, 98);
-      curAY = clamp(curAY + (velPxY * FRAME / stageRect.height) * 100, 2, 98);
+      curAX = clampX(curAX + (velPxX * FRAME / stageRect.width)  * 100);
+      curAY = clampY(curAY + (velPxY * FRAME / stageRect.height) * 100);
       el.style.left = `${curAX}%`;
       el.style.top  = `${curAY}%`;
       el.style.setProperty("--ax", String(curAX));
