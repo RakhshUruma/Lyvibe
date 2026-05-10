@@ -54,6 +54,8 @@ const state: {
 };
 
 // Restore previously generated custom mood (if any) so it survives reload.
+// We RE-normalize so any new schema fields (typewriter, recipes, …) are
+// populated with defaults — pre-existing localStorage payloads predate them.
 const savedCustom = localStorage.getItem("vj.customMood");
 if (savedCustom) {
   try {
