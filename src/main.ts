@@ -162,6 +162,7 @@ document.getElementById("moodGenBtn")!.addEventListener("click", async () => {
     clearAnchors();
     const scaled = scaleMood(r.mood, state.intensity);
     applyMood(scaled); lines.setMood(scaled); particleEngine.setElements(scaled.sceneElements ?? []);
+    repaintCurrentLine();
     document.getElementById("moodMeta")!.textContent = `custom · ${r.status.source}`;
     const briefSnippet = (r.brief || capturedBrief).replace(/\s+/g, " ").slice(0, 80);
     setMessage(`✓ via ${r.status.source} in ${r.status.ms||0}ms · "${briefSnippet}…"`, "ok");
@@ -192,6 +193,7 @@ document.getElementById("moodApplyBtn")!.addEventListener("click", () => {
     clearAnchors();
     const scaled = scaleMood(m, state.intensity);
     applyMood(scaled); lines.setMood(scaled); particleEngine.setElements(scaled.sceneElements ?? []);
+    repaintCurrentLine();
     document.getElementById("moodMeta")!.textContent = "custom · pasted";
     setMessage("✓ pasted mood applied — saved as CUSTOM preset", "ok");
     emphasizePasteMood(false);
@@ -248,7 +250,25 @@ function applyPreset(key: string) {
   particleEngine.setElements(scaled.sceneElements ?? []);
   document.getElementById("moodMeta")!.textContent = key;
   bg.setMode(presetToBgMode(key));
+  repaintCurrentLine();
   try { localStorage.setItem("vj.lastPreset", key); } catch {}
+}
+
+/** After a mood swap, drop any stale .line element and re-render the
+ *  segment that's currently active. Stops the previous mood's keyframes
+ *  from clinging on (often manifests as off-screen / mis-clamped lines).*/
+function repaintCurrentLine(): void {
+  state.lastIdx = -2;
+  lines.clear();
+  const t = audio.currentTime || 0;
+  const i = indexAt(state.lyrics.segments, t);
+  if (i >= 0) {
+    const seg = state.lyrics.segments[i]!;
+    if (t <= seg.end + 0.1) {
+      lines.show(seg, i);
+      state.lastIdx = i;
+    }
+  }
 }
 
 function presetToBgMode(key: string): BgMode {

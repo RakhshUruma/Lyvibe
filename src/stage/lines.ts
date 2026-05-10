@@ -59,11 +59,12 @@ export class LineRenderer {
     const chars = visible;     // used below for typewriter timing
 
     // === append BEFORE positioning so we can measure actual width ====
+    // We measure with getBoundingClientRect so the bbox includes rotation
+    // (line.style.--tilt up to ±18°) and any scale baked into CSS — both
+    // would underflow offsetWidth.
     this.layer.appendChild(line);
-    // Force layout pass so offsetWidth reflects actual rendering.
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-    line.offsetHeight;
-    const measuredVw = (line.offsetWidth / Math.max(1, window.innerWidth)) * 100;
+    const rect0 = line.getBoundingClientRect();
+    const measuredVw = (rect0.width / Math.max(1, window.innerWidth)) * 100;
 
     // === position resolution =========================================
     const rand = this.position(this.mood.positionMode, seg.text.length);
@@ -71,21 +72,41 @@ export class LineRenderer {
     const y     = seg.anchorY ?? rand.y;
     let x = baseX;
     if (seg.anchorX == null) {
-      // The layout box (offsetWidth) doesn't include text-shadow blur,
-      // rgb-split overflow, drop-shadow filter, scale animations, or tilt
-      // diagonal extension. Be GENEROUS — 8vw of safety per side covers
-      // every preset's glow and the rave storm's 60px-blur shadows on a
-      // 1920px viewport.
       const safetyVw = 8;
       const halfVw = (measuredVw / 2) + safetyVw;
-      const margin = 0;
-      const minX = halfVw + margin;
-      const maxX = 100 - halfVw - margin;
+      const minX = halfVw;
+      const maxX = 100 - halfVw;
       x = (minX < maxX) ? Math.max(minX, Math.min(maxX, baseX)) : 50;
     }
     line.style.left = `${x}%`;
     line.style.top  = `${y}%`;
     line.style.setProperty("--ax", String(x));
+
+    // === verify-and-correct ============================================
+    // After position is applied, re-read the rendered rect. If it actually
+    // overflows the viewport (the pre-clamp estimate can lie when shadows /
+    // tilt / scale baked into entry KFs widen the visual extent), shove
+    // the line back inside in pixel units. This is the belt that catches
+    // anything the suspenders missed.
+    if (seg.anchorX == null) {
+      const viewW = window.innerWidth;
+      const viewH = window.innerHeight;
+      const guard = 4;          // px of breathing room from viewport edge
+      const rect = line.getBoundingClientRect();
+      let dxPx = 0, dyPx = 0;
+      if (rect.left   < guard)            dxPx = guard - rect.left;
+      if (rect.right  > viewW - guard)    dxPx = (viewW - guard) - rect.right;
+      if (rect.top    < guard)            dyPx = guard - rect.top;
+      if (rect.bottom > viewH - guard)    dyPx = (viewH - guard) - rect.bottom;
+      // if the line is wider than viewport even the correction can't fix it;
+      // in that case force-centre and let max-width wrap.
+      const renderedTooWide  = rect.width  > viewW - 2 * guard;
+      const renderedTooTall  = rect.height > viewH - 2 * guard;
+      if (renderedTooWide)  { x = 50; line.style.left = `50%`; line.style.setProperty("--ax", "50"); }
+      else if (dxPx !== 0)  { x = x + (dxPx / viewW) * 100; line.style.left = `${x}%`; line.style.setProperty("--ax", String(x)); }
+      if (renderedTooTall)  { line.style.top  = `50%`; }
+      else if (dyPx !== 0)  { const ny = ((rect.top + rect.height/2 + dyPx) / viewH) * 100; line.style.top = `${ny}%`; }
+    }
 
     // entry: typewriter (per-char stagger) OR block (whole-line)
     const entry = pick(this.mood.entryKeyframes);
