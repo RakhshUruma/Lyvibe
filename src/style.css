@@ -27,7 +27,10 @@
   --line-color:  #ffffff;
   --line-blur:   0px;
   --bass:   0;
+  --mid:    0;
+  --treble: 0;
   --energy: 0;
+  --kick:   0;
 }
 
 * { box-sizing: border-box; }
@@ -107,8 +110,19 @@ html, body {
     0 0 22px rgba(255,255,255,0.3);
   will-change: opacity, transform, filter;
 }
-.line.shown { opacity: 1; }
+.line.shown {
+  opacity: 1;
+  /* kick + treble pulse the visible line — global audio reactivity. */
+  scale: calc(1 + var(--kick, 0) * 0.10 + var(--treble, 0) * 0.04);
+  transition: scale 70ms ease-out;
+}
 .line .ch { display: inline-block; }
+
+/* Background gets a brief bright wash on kick. */
+#bgCssLayer, #bgCanvas {
+  filter: brightness(calc(1 + var(--kick, 0) * 0.45)) saturate(calc(1 + var(--kick, 0) * 0.4));
+  transition: filter 80ms ease-out;
+}
 /* draggable while paused — subtle, no dashed window */
 body.paused-edit .line.shown { pointer-events: auto; cursor: grab; }
 body.paused-edit .line.shown:hover {

@@ -16,6 +16,7 @@ import { setMoodStatus, setAsrStatus, setMcpStatus, setMessage, emphasizePasteMo
 import { recordWebm } from "./export/recorder";
 import { getAudioGraph, resumeAudioGraph } from "./audio-graph";
 import { ParticleEngine } from "./scene/particle-engine";
+import { audioState } from "./audio-state";
 
 // =====================================================================
 // boot
@@ -66,13 +67,26 @@ if (savedCustom) {
 // scale a mood by current intensity slider (0.3 - 2.0)
 const clamp = (v: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, v));
 function scaleMood(m: Mood, k: number): Mood {
+  // sub-linear scaling for rates so 2.0× doesn't always saturate to 1.0
+  const rate = (v: number) => clamp(v * k, 0, 1);
+  // rgbSplit grows with intensity, but more conservatively (so dim presets
+  // still get punch without becoming illegible).
+  const rgb = clamp(m.rgbSplit * (0.5 + 0.5 * k), 0, 12);
   return {
     ...m,
-    motionRate: clamp(m.motionRate * k, 0, 1),
-    glitchRate: clamp(m.glitchRate * k, 0, 1),
-    ghostRate:  clamp(m.ghostRate  * k, 0, 1),
-    bgSwapRate: clamp(m.bgSwapRate * k, 0, 1),
+    motionRate: rate(m.motionRate),
+    glitchRate: rate(m.glitchRate),
+    ghostRate:  rate(m.ghostRate),
+    bgSwapRate: rate(m.bgSwapRate),
     tilt:       clamp(m.tilt * k, 0, 25),
+    rgbSplit:   rgb,
+    sceneElements: m.sceneElements.map(se => ({
+      ...se,
+      // particle density scales with intensity — more sparks at 2×, fewer at 0.3×
+      count:     Math.max(1, Math.round(se.count * k)),
+      spawnRate: se.spawnRate != null ? se.spawnRate * k : undefined,
+      sizeRange: [se.sizeRange[0], se.sizeRange[1] * (0.85 + 0.3 * k)] as [number, number],
+    })),
   };
 }
 
@@ -536,17 +550,62 @@ audio.addEventListener("play", () => {
   void resumeAudioGraph();
   if (_tickStarted) return;
   _tickStarted = true;
+
+  // Rolling bass average for kick (onset) detection.
+  const bassHistory: number[] = [];
+  const HISTORY_LEN = 30;       // ~half second at 60fps
+  const KICK_THRESHOLD = 0.18;  // bass must exceed avg by this to fire kick
+  const KICK_MIN = 0.35;        // absolute floor — quiet sections don't kick
+  let kickEnvelope = 0;         // decays each frame
+  let lastKickT = 0;
+
+  const root = document.documentElement;
   const tick = () => {
     g.analyser.getByteFrequencyData(g.data);
-    let bass = 0, total = 0;
-    for (let i = 0; i < g.data.length; i++) {
-      total += g.data[i]!;
-      if (i < 8) bass += g.data[i]!;
+    const N = g.data.length;
+    // Three bands. fftSize=256 → 128 bins; spans 0..nyquist (~22kHz).
+    //   bass:   0..7   (~0..1.4 kHz)
+    //   mid:    8..31  (~1.4..5.5 kHz)
+    //   treble: 32..127 (~5.5..22 kHz)
+    let bSum = 0, mSum = 0, tSum = 0, total = 0;
+    const bN = 8, mN = 24, tN = Math.max(1, N - 32);
+    for (let i = 0; i < N; i++) {
+      const v = g.data[i]!;
+      total += v;
+      if (i < 8) bSum += v;
+      else if (i < 32) mSum += v;
+      else tSum += v;
     }
-    bass /= 8 * 255;
-    const energy = total / (g.data.length * 255);
-    document.documentElement.style.setProperty("--bass", bass.toFixed(3));
-    document.documentElement.style.setProperty("--energy", energy.toFixed(3));
+    const bass   = (bSum / bN) / 255;
+    const mid    = (mSum / mN) / 255;
+    const treble = (tSum / tN) / 255;
+    const energy = total / (N * 255);
+
+    // kick detection — bass relative to recent rolling average
+    bassHistory.push(bass);
+    if (bassHistory.length > HISTORY_LEN) bassHistory.shift();
+    const avgBass = bassHistory.reduce((a,b) => a+b, 0) / bassHistory.length;
+    const now = performance.now();
+    if (bass > avgBass + KICK_THRESHOLD && bass > KICK_MIN && (now - lastKickT) > 110) {
+      kickEnvelope = 1;
+      lastKickT = now;
+    }
+    // decay envelope (~250ms half-life)
+    kickEnvelope *= 0.86;
+    if (kickEnvelope < 0.01) kickEnvelope = 0;
+
+    audioState.bass   = bass;
+    audioState.mid    = mid;
+    audioState.treble = treble;
+    audioState.energy = energy;
+    audioState.kick   = kickEnvelope;
+
+    root.style.setProperty("--bass",   bass.toFixed(3));
+    root.style.setProperty("--mid",    mid.toFixed(3));
+    root.style.setProperty("--treble", treble.toFixed(3));
+    root.style.setProperty("--energy", energy.toFixed(3));
+    root.style.setProperty("--kick",   kickEnvelope.toFixed(3));
+
     requestAnimationFrame(tick);
   };
   requestAnimationFrame(tick);

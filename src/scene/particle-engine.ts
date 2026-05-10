@@ -9,6 +9,7 @@
  */
 
 import type { SceneElement, SceneMotion, SelfAnim } from "./schema";
+import { audioState } from "../audio-state";
 
 type Particle = {
   dom: HTMLElement;
@@ -165,7 +166,9 @@ export class ParticleEngine {
 
   private spawn(idx: number): void {
     const el = this.elements[idx]!;
-    const size = rand(el.sizeRange[0], el.sizeRange[1]);
+    // audio-reactive size: kick boosts up to +60% on the spawn instant.
+    const sizeMul = 1 + audioState.kick * 0.6 + audioState.bass * 0.15;
+    const size = rand(el.sizeRange[0], el.sizeRange[1]) * sizeMul;
     const dom = createShape(el, size);
     if (el.opacityRange) dom.style.opacity = String(rand(el.opacityRange[0], el.opacityRange[1]));
     if (el.blendMode) dom.style.mixBlendMode = el.blendMode as any;
@@ -232,10 +235,14 @@ export class ParticleEngine {
       const list = this.buckets[i]!;
 
       if (el.spawnRate && el.spawnRate > 0) {
+        // audio-reactive spawn rate: bass adds up to +1.5×, kick spike +2×.
+        const reactiveRate = el.spawnRate * (1 + audioState.bass * 1.4 + audioState.kick * 2.0);
         this.spawnAccum[i] = (this.spawnAccum[i] || 0) + dt;
-        const interval = 1 / el.spawnRate;
+        const interval = 1 / reactiveRate;
+        // hard cap: count×2 absolute ceiling so kicks don't blow past memory
+        const cap = el.count * 2;
         while (this.spawnAccum[i]! >= interval) {
-          if (list.length < el.count) this.spawn(i);
+          if (list.length < cap) this.spawn(i);
           this.spawnAccum[i]! -= interval;
         }
       }

@@ -67,7 +67,9 @@ export const normalizeMood = (raw: any): Mood => {
     bgSwapRate: clamp(raw?.bgSwapRate, 0, 1, 0.25),
     positionMode: raw?.positionMode === "scatter" ? "scatter" : "center",
     bgCssVariants: variants,
-    lineExtraCss:  sanitizeCss(str(raw?.lineExtraCss, "")),
+    // If LLM left lineExtraCss empty, inject a generic glow tied to mood vars
+    // so plain text never appears flat. Most presets/generates won't trip this.
+    lineExtraCss:  sanitizeCss(str(raw?.lineExtraCss, "") || DEFAULT_LINE_EXTRA),
     entryKeyframes: entry,
     motionKeyframes: motion,
     bgKeyframes:    bgKf,
@@ -77,6 +79,9 @@ export const normalizeMood = (raw: any): Mood => {
       : [],
   };
 };
+
+const DEFAULT_LINE_EXTRA =
+  "text-shadow: 0 0 16px var(--accent), 0 0 32px var(--hot); filter: drop-shadow(0 0 6px var(--accent));";
 
 const normSceneElement = (raw: any): SceneElement | null => {
   if (!raw || typeof raw !== "object") return null;

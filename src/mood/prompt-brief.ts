@@ -24,16 +24,32 @@ Cover these axes specifically:
    - Rhythm: pulse rate, drift speed, whether it's restless or meditative
    - Audio reactivity: how the bg should respond to bass/energy
 
-3. Entry behavior of the text
+3. **Text typography & treatment** (THIS IS UNDERVALUED — be specific)
+   - Font: pick one matching the vibe. Examples:
+     - horror / occult / drama → "Georgia, 'Hiragino Mincho ProN', serif" italic-feel
+     - rave / cyber / neon / chaos → "Impact, 'Yu Gothic', sans-serif" 900
+     - acoustic / folk / typewriter / minimal → "Courier New, monospace"
+     - dream / pastel / lullaby → "Georgia, serif" 400
+     - retro / vintage → "Courier New, monospace" or "Arial Black"
+   - Weight: 100-300 for whisper / dream, 700 for medium, 900 for punchy
+   - Color: usually high-contrast against bg, but tinted by mood (e.g. cream #fff5e0
+     for warmth, #fff for cold, #ffe8f5 for dream, #ffd2d2 for blood)
+   - rgb-split distance: 0 for clean, 4-8 for cyber/glitch, 1-2 for soft
+   - blur amount: 0 for sharp, 0.4-1 for ethereal
+   - tilt: 0 for serious/sacred, 5-12 for playful/chaotic
+   - text-shadow / filter for the lineExtraCss field — describe what glow / aura
+     the text should have. e.g. "warm orange halo at 0 0 22px, deeper red at 0 0 50px"
+
+4. Entry behavior of the text
    - Concrete physical metaphor (e.g. "fragments of glass assembling into a word", "characters bloom from a seed point", "ink drops down and settles")
    - Whether each character should appear individually (typewriter / staggered) or the whole line as a block
    - Speed and easing feel
 
-4. Continuous motion of text after it's settled
+5. Continuous motion of text after it's settled
    - What kind of subtle living motion — breath, tremor, sway, drift, heartbeat?
    - Intensity (barely noticeable vs unsettling)
 
-5. Scene elements (independent particles flying/falling/orbiting)
+6. Scene elements (independent particles flying/falling/orbiting)
    This is where the brief gets concrete. If the vibe suggests literal entities
    (butterflies, snow, fireflies, sparks, petals, birds, stars, leaves, ash,
    bubbles), DESCRIBE THEM EXPLICITLY:
@@ -49,7 +65,7 @@ Cover these axes specifically:
      "S-curve from lower-left up to upper-right, weaving"
    If the vibe doesn't suggest discrete entities, you can omit this section.
 
-6. Atmosphere and connective tissue
+7. Atmosphere and connective tissue
    - Mood adjectives (tense, weightless, euphoric, sacred, manic)
    - What kind of glitch / flicker / ghost echoes (if any)
    - Whether tilt should be straight or askew

@@ -141,6 +141,37 @@ ALWAYS preserve translate(-50%, -50%) on transforms (lines are positioned with t
 
 NEVER include comments inside the JSON.
 
+# CRITICAL: Text typography must MATCH the vibe. Stop defaulting to Impact.
+- Use this cheatsheet for "font" / "weight" / "color":
+    horror / drama       → "Georgia, 'Hiragino Mincho ProN', serif", 700, #ffe8e8 or #ffd2d2
+    rave / cyber / neon  → "Impact, 'Yu Gothic', sans-serif", 900, #ffffff or #fff5fc
+    folk / acoustic      → "Courier New, monospace", 700, #fff5e0
+    dream / lullaby      → "Georgia, serif", 400, #fff5fc
+    retro / vintage      → "Courier New, monospace", 700, #f4d03f
+    sacred / ambient     → "Georgia, serif", 300, #e8f0e8
+    sport / impactful    → "Impact, sans-serif", 900, #ffffff
+    glitch / digital     → "Courier New, monospace", 700, #00f0ff
+
+# CRITICAL: lineExtraCss must NOT be empty. Always set a tasteful glow that
+matches the vibe. Examples (you must adapt the colors to the vibe):
+  - horror:  "text-shadow: 0 0 18px #ff2030, 0 0 40px #800010, 4px 0 #ff0030, -4px 0 #80000a; filter: drop-shadow(0 0 6px #ff2030);"
+  - cyber:   "text-shadow: 0 0 14px var(--accent), 0 0 28px var(--hot); filter: drop-shadow(0 0 8px var(--accent));"
+  - dream:   "text-shadow: 0 0 22px #ffb3e6, 0 0 60px #a070d0; filter: blur(0.3px);"
+  - acoustic:"text-shadow: 0 1px 2px rgba(0,0,0,0.5);"
+  - flame:   "text-shadow: 0 0 18px #ff7f30, 0 0 38px #ff3030, 0 -4px 14px #ffd23f; filter: drop-shadow(0 0 8px #ff7f30);"
+  - aqua:    "text-shadow: 0 0 18px #5fd0ff, 0 0 40px #3088c0;"
+
+# CSS variables you can reference inside lineExtraCss / bgCssVariants:
+  --bass    (live 0..1, low frequency level)
+  --mid     (live 0..1, mid)
+  --treble  (live 0..1, high)
+  --energy  (live 0..1, full spectrum avg)
+  --kick    (live 0..1, spikes on bass onset, decays in 250ms — perfect for
+             punchy filter / scale / brightness pulses)
+  --accent --hot --cool   (mood palette colors)
+You can use any of these in transform / filter / opacity / scale of your CSS,
+e.g. "filter: brightness(calc(1 + var(--kick) * 0.5));" for kick-reactive bg.
+
 # Scene elements — when the brief mentions discrete entities
 
 If the brief talks about butterflies / snow / sparks / petals / stars / leaves /
