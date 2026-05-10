@@ -50,8 +50,10 @@ export const analyzeVibe = async (file: File): Promise<string> => {
     );
   }
   const ai = new GoogleGenerativeAI(env.geminiMood.key);
+  // Use flash for vibe analysis — single-shot, doesn't need Pro reasoning,
+  // and flash has 5× larger free-tier quota. ASR/mood-gen still use Pro.
   const model = ai.getGenerativeModel({
-    model: env.geminiMood.model,
+    model: "gemini-2.5-flash",
     generationConfig: { temperature: 0.85 },
   });
   const b64 = await blobToBase64(file);
