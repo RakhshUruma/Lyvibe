@@ -37,8 +37,12 @@ export type Mood = {
 
   bgCssVariants: string[];   // each is a CSS body for #bgCssLayer
   lineExtraCss: string;      // extra CSS appended to .line
-  entryKeyframes: Keyframe[];
+  entryKeyframes: Keyframe[];   // raw / "no-hint" — full LLM custom or curated
   motionKeyframes: Keyframe[];
+  /** Generator references — names + params. Expanded by normalize into
+   *  Keyframe objects appended to entryKeyframes / motionKeyframes. */
+  entryRecipes?: { name: string; params?: Record<string, any> }[];
+  motionRecipes?: { name: string; params?: Record<string, any> }[];
   /** Background-only keyframes; injected globally so bgCssVariants can
    *  reference them via `animation: <name> ... infinite;`. */
   bgKeyframes: Keyframe[];

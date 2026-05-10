@@ -1,5 +1,6 @@
 import type { Mood, Keyframe } from "./schema";
 import type { SceneElement } from "../scene/schema";
+import { ENTRY_GENERATORS, MOTION_GENERATORS, expandRecipe, type Recipe } from "./generators";
 
 const clamp = (v: unknown, lo: number, hi: number, d: number): number => {
   const n = typeof v === "number" ? v : parseFloat(String(v));
@@ -39,11 +40,32 @@ export const normalizeMood = (raw: any): Mood => {
 
   const entry: Keyframe[] = Array.isArray(raw?.entryKeyframes) && raw.entryKeyframes.length
     ? raw.entryKeyframes.map((k: any, i: number) => normKeyframe(k, `entry${i}`))
-    : [{ name: "entryFade", css: "0%{opacity:0;transform:translate(-50%,-50%) scale(0.8)} 100%{opacity:1;transform:translate(-50%,-50%) scale(1)}", duration: "0.8s", easing: "ease-out" }];
+    : [];
 
   const motion: Keyframe[] = Array.isArray(raw?.motionKeyframes)
     ? raw.motionKeyframes.map((k: any, i: number) => normKeyframe(k, `motion${i}`))
     : [];
+
+  // Expand entryRecipes / motionRecipes → keyframes, append to the raw arrays.
+  const entryRecipes: Recipe[] = Array.isArray(raw?.entryRecipes) ? raw.entryRecipes : [];
+  entryRecipes.forEach((r, i) => {
+    const k = expandRecipe(r, ENTRY_GENERATORS, `e${i}`);
+    if (k) entry.push(k);
+  });
+  const motionRecipes: Recipe[] = Array.isArray(raw?.motionRecipes) ? raw.motionRecipes : [];
+  motionRecipes.forEach((r, i) => {
+    const k = expandRecipe(r, MOTION_GENERATORS, `m${i}`);
+    if (k) motion.push(k);
+  });
+
+  // Final fallback if both raw and recipes produced nothing.
+  if (entry.length === 0) {
+    entry.push({
+      name: "entryFade",
+      css: "0%{opacity:0;transform:translate(var(--xshift,-50%),-50%) scale(0.85)} 100%{opacity:1;transform:translate(var(--xshift,-50%),-50%) scale(1)}",
+      duration: "0.6s", easing: "ease-out",
+    });
+  }
 
   const bgKf: Keyframe[] = Array.isArray(raw?.bgKeyframes)
     ? raw.bgKeyframes.map((k: any, i: number) => normKeyframe(k, `bg${i}`))

@@ -37,11 +37,15 @@ Given a vibe description, return ONE JSON object describing a "mood".
   "bgCssVariants": string[]    // 2..4 entries — see Background section
   "lineExtraCss": string       // appended into ".line.shown { ... }"; you may put text-shadow, filter, etc.
 
-  "entryKeyframes": [           // 3..5 entries; how a line APPEARS
+  "entryKeyframes": [           // 0..3 RAW custom keyframes (no-hint mode — full freedom)
     { "name": "...", "css": "0%{...}...100%{...}", "duration": "0.4s..1.2s", "easing": "...", "iteration": "1" }
   ],
-  "motionKeyframes": [          // 1..3 entries; how a line CONTINUOUSLY MOVES while shown
-    { "name": "...", "css": "0%{...}...100%{...}", "duration": "1s..6s", "easing": "...", "iteration": "infinite" }
+  "entryRecipes": [             // 1..4 generator references (PREFERRED — infinite parametric variety + quality guaranteed)
+    { "name": "<generator>", "params": { ... } }
+  ],
+  "motionKeyframes": [],        // 0..2 RAW custom keyframes
+  "motionRecipes": [            // 1..3 generator references
+    { "name": "<generator>", "params": { ... } }
   ],
   "bgKeyframes": [              // 1..3 entries; animations the BACKGROUND uses
     { "name": "...", "css": "0%{...}...100%{...}", "duration": "...", "easing": "...", "iteration": "infinite" }
@@ -130,6 +134,44 @@ ALWAYS preserve translate(-50%, -50%) on transforms (lines are positioned with t
     "background: #0a0014; background-image: radial-gradient(circle at 20% 80%, rgba(255,95,160,0.32), transparent 40%), radial-gradient(circle at 80% 20%, rgba(157,58,255,0.32), transparent 40%); animation: vjBgPulse 2.4s ease-in-out infinite;"
   ]
 }
+
+# Generator catalogue (use entryRecipes / motionRecipes — vastly preferred)
+
+## ENTRY generators (one-shot when a line appears)
+- "fade":     { duration?: 0.15-2s, fromScale?: 0.5-1.5, easing? }
+- "pop":      { duration?, fromScale?: 0-1, fromRotate?: -180..180 }
+- "slide":    { duration?, fromDir: "up"|"down"|"left"|"right", distance?: 5-300 }
+- "spin":     { duration?, fromAngleDeg?: -720..720, fromScale?: 0-1 }
+- "slam":     { duration?, fromScale?: 1.2-4, blurPx?: 0-30 }
+- "drop":     { duration?, distance?: 20-600, tiltDeg?: -45..45 }
+- "flip":     { duration?, axis: "X"|"Y", fromAngleDeg?: 30-180 }
+- "glitch":   { duration?, jitterPx?: 1-30, hueRotate?: 0-270 }
+- "emerge":   { duration?, fromScale?: 0-1, fromBlurPx?: 0-40, fromBrightness?: 0-1 }
+- "shatter":  { duration?, scatter?: 5-120, rotate?: 0-180 }
+- "vibrate":  { duration?, jitterPx?: 1-20 }
+
+## MOTION generators (looped while line is shown)
+- "breathe":   { period?: 0.4-12s, depth?: 0.005-0.4 }
+- "heartbeat": { period?: 0.4-4s, big?: 1.02-1.6, small?: 1-1.4 }
+- "sway":      { period?: 0.5-12s, angleDeg?: 0.5-25 }
+- "bounce":    { period?: 0.2-4s, height?: 1-60 }
+- "shake":     { amplitude?: 0.5-30, period?: 0.05-1s, axis: "x"|"y"|"both" }
+- "drift":     { angleDeg?: 0-360, distance?: 1-60, period?: 0.5-20s }
+- "glitch":    { jitterPx?: 1-30, period?: 0.08-1.2s, hueRotate?: 0-180 }
+- "flutter":   { period?: 0.2-2s, angleDeg?: 1-25, lift?: 0-20 }
+- "ripple":    { period?: 0.2-4s, amplitude?: 0.01-0.3 }
+- "pulseGlow": { period?: 0.4-6s, baseBlur?: 0-60, peakBlur?: 2-80 }
+- "flicker":   { period?: 0.1-3s, depth?: 0.1-0.9 }
+
+## Worked examples
+- horror heartbeat → entryRecipes: [{name:"slam",params:{duration:0.4,blurPx:14}},{name:"drop",params:{tiltDeg:-15}}]; motionRecipes: [{name:"heartbeat",params:{period:1.1,big:1.18}},{name:"shake",params:{amplitude:1.5,period:0.16}}]
+- dream butterfly  → entryRecipes: [{name:"fade",params:{duration:0.8}},{name:"emerge",params:{fromBlurPx:12}}]; motionRecipes: [{name:"breathe",params:{period:3.6,depth:0.04}},{name:"flutter",params:{period:0.65,angleDeg:5,lift:3}}]
+- cyber rave       → entryRecipes: [{name:"pop",params:{}},{name:"glitch",params:{jitterPx:8,hueRotate:90}},{name:"spin",params:{}}]; motionRecipes: [{name:"shake",params:{amplitude:2,axis:"x"}},{name:"pulseGlow",params:{peakBlur:32}}]
+
+## Rules
+- PREFER recipes (infinite variety, quality guaranteed). Use raw entryKeyframes only when you genuinely want a vibe-specific custom motion not in the catalogue (e.g. a unique signature animation for that mood).
+- 1-4 entryRecipes + 1-3 motionRecipes per mood is normal. Each line picks one entry and one motion at random from these arrays.
+- entryKeyframes / motionKeyframes can be empty arrays [] when relying on recipes.
 
 # Aesthetics — match the vibe semantically
 - dark/horror   → low brightness, deep reds, slow heart-like pulses, heavy ghost, glitchAppear/emerge entries
