@@ -254,11 +254,25 @@ export const PRESETS: Record<string, Mood> = {
       "background: linear-gradient(135deg, #082040 0%, #1a3050 50%, #020822 100%); background-size: 300% 300%; animation: vjBgDrift 14s ease-in-out infinite alternate;",
     ],
     sceneElements: [{
-      shape: "emoji", emoji: "✨",
-      sizeRange: [12, 22], count: 30, spawnRate: 0.6,
-      motion: { type: "rise", durationRange: [10, 18], sineAmplitude: 18, sinePeriod: 3000 },
-      selfAnim: { property: "scale", range: [0.55, 1.0], periodMs: 2200 },
+      // tiny glow dot
+      shape: "svg",
+      svgPath: "M20,16 C22.2,16 24,17.8 24,20 C24,22.2 22.2,24 20,24 C17.8,24 16,22.2 16,20 C16,17.8 17.8,16 20,16 Z",
+      svgViewBox: "0 0 40 40",
+      fill: "#7affc1",
+      sizeRange: [4, 10], count: 60, spawnRate: 1.4,
+      motion: { type: "rise", durationRange: [10, 18], sineAmplitude: 26, sinePeriod: 3200 },
+      selfAnim: { property: "scale", range: [0.4, 1.2], periodMs: 1800 },
       opacityRange: [0.4, 0.9], blendMode: "screen",
+    }, {
+      // larger soft star points (4-pointed sparkle)
+      shape: "svg",
+      svgPath: "M20,4 L24,16 L36,20 L24,24 L20,36 L16,24 L4,20 L16,16 Z",
+      svgViewBox: "0 0 40 40",
+      fill: "#9d6bff",
+      sizeRange: [10, 22], count: 14, spawnRate: 0.4,
+      motion: { type: "drift", durationRange: [10, 18], sineAmplitude: 30, sinePeriod: 2600 },
+      selfAnim: { property: "rotate", range: [-180, 180], periodMs: 12000 },
+      opacityRange: [0.3, 0.75], blendMode: "screen",
     }],
   }),
 
@@ -275,13 +289,23 @@ export const PRESETS: Record<string, Mood> = {
       "background: linear-gradient(170deg, #0e2018 0%, #0a1812 60%, #050a08 100%); animation: vjBgPulse 6s ease-in-out infinite;",
     ],
     sceneElements: [{
+      // leaf
       shape: "svg",
-      svgPath: "M4,20 C12,4 28,4 36,20 C28,36 12,36 4,20 Z",
+      svgPath: "M4,20 C12,4 28,4 36,20 C28,36 12,36 4,20 Z M20,4 L20,36",
       svgViewBox: "0 0 40 40",
       fill: "#c4d49a",
-      sizeRange: [22, 40], count: 14, spawnRate: 0.8,
-      motion: { type: "rain", durationRange: [9, 15], sineAmplitude: 60, sinePeriod: 2400, rotateMode: "spin" },
+      sizeRange: [20, 40], count: 12, spawnRate: 0.6,
+      motion: { type: "rain", durationRange: [10, 16], sineAmplitude: 70, sinePeriod: 2400, rotateMode: "spin" },
       opacityRange: [0.55, 0.9], blendMode: "screen",
+    }, {
+      // pollen / spore dots
+      shape: "svg",
+      svgPath: "M20,17 C21.6,17 23,18.4 23,20 C23,21.6 21.6,23 20,23 C18.4,23 17,21.6 17,20 C17,18.4 18.4,17 20,17 Z",
+      svgViewBox: "0 0 40 40",
+      fill: "#d4e09a",
+      sizeRange: [3, 7], count: 50, spawnRate: 1.5,
+      motion: { type: "rain", durationRange: [8, 14], sineAmplitude: 22, sinePeriod: 2200 },
+      opacityRange: [0.4, 0.85], blendMode: "screen",
     }],
   }),
 
@@ -298,16 +322,25 @@ export const PRESETS: Record<string, Mood> = {
       "background: radial-gradient(circle at 50% 100%, rgba(255,127,48,0.5), transparent 50%), #0a0200; animation: vjBgPulse 1.2s ease-in-out infinite;",
     ],
     sceneElements: [{
-      shape: "emoji", emoji: "🔥",
-      sizeRange: [40, 80], count: 14, spawnRate: 2.5,
-      motion: { type: "rise", durationRange: [2.5, 4], sineAmplitude: 18, sinePeriod: 600 },
-      selfAnim: { property: "scale", range: [0.7, 1.25], periodMs: 380 },
-      opacityRange: [0.7, 1.0], blendMode: "screen",
+      // flame teardrop
+      shape: "svg",
+      svgPath: "M20,4 C26,12 30,18 28,26 C26,32 14,32 12,26 C10,18 14,12 20,4 Z",
+      svgViewBox: "0 0 40 40",
+      fill: "#ff7f30",
+      sizeRange: [24, 50], count: 10, spawnRate: 2.0,
+      motion: { type: "rise", durationRange: [2.6, 4.2], sineAmplitude: 16, sinePeriod: 700 },
+      selfAnim: { property: "scaleY", range: [0.7, 1.2], periodMs: 320 },
+      opacityRange: [0.65, 0.95], blendMode: "screen",
     }, {
-      shape: "emoji", emoji: "✨",
-      sizeRange: [14, 26], count: 30, spawnRate: 4,
-      motion: { type: "rise", durationRange: [1.6, 3], sineAmplitude: 30, sinePeriod: 800 },
-      opacityRange: [0.5, 0.95], blendMode: "screen",
+      // ember sparks (small dots rising)
+      shape: "svg",
+      svgPath: "M20,17 C21.6,17 23,18.4 23,20 C23,21.6 21.6,23 20,23 C18.4,23 17,21.6 17,20 C17,18.4 18.4,17 20,17 Z",
+      svgViewBox: "0 0 40 40",
+      fill: "#ffd23f",
+      sizeRange: [3, 8], count: 60, spawnRate: 5,
+      motion: { type: "rise", durationRange: [1.8, 3.2], sineAmplitude: 28, sinePeriod: 800 },
+      selfAnim: { property: "scale", range: [0.5, 1.1], periodMs: 600 },
+      opacityRange: [0.6, 1.0], blendMode: "screen",
     }],
   }),
 
@@ -325,11 +358,25 @@ export const PRESETS: Record<string, Mood> = {
       "background: radial-gradient(circle at 30% 20%, #3088c0 0%, #021022 60%); animation: vjBgPulse 5s ease-in-out infinite;",
     ],
     sceneElements: [{
-      shape: "emoji", emoji: "🫧",
-      sizeRange: [18, 44], count: 18, spawnRate: 1.2,
-      motion: { type: "rise", durationRange: [6, 11], sineAmplitude: 30, sinePeriod: 2200 },
-      selfAnim: { property: "scale", range: [0.85, 1.05], periodMs: 1800 },
-      opacityRange: [0.5, 0.85],
+      // bubble (translucent ring)
+      shape: "svg",
+      svgPath: "M20,8 C26.6,8 32,13.4 32,20 C32,26.6 26.6,32 20,32 C13.4,32 8,26.6 8,20 C8,13.4 13.4,8 20,8 Z",
+      svgViewBox: "0 0 40 40",
+      fill: "rgba(180,220,255,0.35)",
+      sizeRange: [16, 48], count: 14, spawnRate: 0.9,
+      motion: { type: "rise", durationRange: [7, 12], sineAmplitude: 32, sinePeriod: 2400 },
+      selfAnim: { property: "scale", range: [0.9, 1.05], periodMs: 1900 },
+      opacityRange: [0.55, 0.9], blendMode: "screen",
+    }, {
+      // tiny plankton glow dots
+      shape: "svg",
+      svgPath: "M20,17 C21.6,17 23,18.4 23,20 C23,21.6 21.6,23 20,23 C18.4,23 17,21.6 17,20 C17,18.4 18.4,17 20,17 Z",
+      svgViewBox: "0 0 40 40",
+      fill: "#a0f0ff",
+      sizeRange: [3, 7], count: 40, spawnRate: 1.2,
+      motion: { type: "rise", durationRange: [9, 15], sineAmplitude: 18, sinePeriod: 2800 },
+      selfAnim: { property: "scale", range: [0.5, 1.1], periodMs: 2400 },
+      opacityRange: [0.4, 0.85], blendMode: "screen",
     }],
   }),
 
