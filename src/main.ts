@@ -348,6 +348,40 @@ document.getElementById("moodLoadCurrentBtn")!.addEventListener("click", () => {
   flash("moodLoadCurrentBtn");
 });
 
+const wireJsonDrop = (taId: string, applyBtnId: string): void => {
+  const ta = document.getElementById(taId) as HTMLTextAreaElement | null;
+  if (!ta) return;
+  const onOver = (e: DragEvent) => {
+    if (!e.dataTransfer) return;
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "copy";
+    ta.classList.add("drop-hover");
+  };
+  const onLeave = () => ta.classList.remove("drop-hover");
+  const onDrop = async (e: DragEvent) => {
+    e.preventDefault();
+    ta.classList.remove("drop-hover");
+    const f = e.dataTransfer?.files?.[0];
+    if (!f) return;
+    try {
+      const text = await f.text();
+      JSON.parse(text); // validate
+      ta.value = text;
+      const det = ta.closest("details") as HTMLDetailsElement | null;
+      if (det) det.open = true;
+      setMessage(`✓ loaded ${f.name} — applying...`, "ok");
+      document.getElementById(applyBtnId)?.dispatchEvent(new MouseEvent("click"));
+    } catch (err) {
+      setMessage(`✗ ${f.name}: ${err instanceof Error ? err.message : err}`, "err");
+    }
+  };
+  ta.addEventListener("dragover", onOver);
+  ta.addEventListener("dragleave", onLeave);
+  ta.addEventListener("drop", onDrop);
+};
+wireJsonDrop("moodJson",     "moodApplyBtn");
+wireJsonDrop("manualLyrics", "manualLyricsBtn");
+
 const downloadJson = (filename: string, payload: unknown): void => {
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
   const a = document.createElement("a");
@@ -649,8 +683,31 @@ function openEditorAtCurrent() {
   editor.open(state.lyrics, i, t);
 }
 
+// Capture-phase guard: nothing on the page can swallow Ctrl/Cmd+A inside
+// an editable field. Runs BEFORE any other listener (including any global
+// transport handlers), forces select-all, and stops propagation so the
+// rest of the app never sees the event.
 document.addEventListener("keydown", (e) => {
-  if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
+  const t = e.target as HTMLElement | null;
+  const isEditable =
+    t instanceof HTMLInputElement ||
+    t instanceof HTMLTextAreaElement ||
+    (t && (t as HTMLElement).isContentEditable);
+  if (!isEditable) return;
+  if ((e.ctrlKey || e.metaKey) && (e.key === "a" || e.key === "A")) {
+    try { (t as HTMLInputElement | HTMLTextAreaElement).select(); } catch { /* noop */ }
+    e.stopImmediatePropagation();
+  }
+  // Let cut/copy/paste/undo/redo flow natively too — but block our own
+  // global shortcuts (Space/E) from firing while a field is focused.
+  e.stopPropagation();
+}, true);
+
+document.addEventListener("keydown", (e) => {
+  const inField = e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement;
+  if (inField) {
+    return;
+  }
   if (e.key === " ") { e.preventDefault(); transport.onPlayPause(); }
   if (e.key === "e" || e.key === "E") {
     if (!audio.paused) audio.pause();
@@ -715,3 +772,60 @@ async function persistLyrics() {
     await saveProject(state.projectId, state.lyrics, state.audioFile?.name);
   }
 }
+
+// =====================================================================
+// Live state sync — push current mood/lyrics to relay so Claude can read
+// them from .state/*.json. Polls every 1s and POSTs only when changed.
+// Silent on failure (relay may not be running).
+// =====================================================================
+// Pull pushed moods from Claude side — 2s poll, applies if present.
+let lastPulledId = "";
+setInterval(async () => {
+  try {
+    const r = await fetch("http://localhost:8787/pull-mood");
+    if (!r.ok) return;
+    const j = await r.json();
+    if (!j.mood || !j.id || j.id === lastPulledId) return;
+    lastPulledId = j.id;
+    const m = normalizeMood(j.mood);
+    state.mood = m; state.moodKey = "custom";
+    (PRESETS as any).custom = m;
+    const customOpt = document.getElementById("customOption") as HTMLOptionElement | null;
+    if (customOpt) customOpt.hidden = false;
+    const sel = document.getElementById("presetSelect") as HTMLSelectElement | null;
+    if (sel) sel.value = "custom";
+    clearAnchors();
+    const scaled = scaleMood(m, state.intensity);
+    applyMood(scaled); lines.setMood(scaled); particleEngine.setElements(scaled.sceneElements ?? []);
+    repaintCurrentLine();
+    document.getElementById("moodMeta")!.textContent = "custom · from Claude";
+    setMessage("✓ mood pushed from Claude — applied", "ok");
+    try { localStorage.setItem("vj.customMood", JSON.stringify(m)); } catch {}
+  } catch { /* relay down */ }
+}, 2000);
+
+let lastSyncedMood = ""; let lastSyncedLyrics = "";
+setInterval(async () => {
+  const moodStr   = JSON.stringify(state.mood);
+  const lyricsStr = JSON.stringify(state.lyrics);
+  const payload: Record<string, unknown> = {};
+  if (moodStr   !== lastSyncedMood)   payload.mood   = state.mood;
+  if (lyricsStr !== lastSyncedLyrics) payload.lyrics = state.lyrics;
+  if (Object.keys(payload).length === 0) return;
+  payload.meta = {
+    moodKey: state.moodKey,
+    intensity: state.intensity,
+    audioFile: state.audioFile?.name ?? null,
+    currentTime: audio.currentTime,
+    duration: audio.duration || null,
+  };
+  try {
+    await fetch("http://localhost:8787/sync", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    lastSyncedMood   = moodStr;
+    lastSyncedLyrics = lyricsStr;
+  } catch { /* relay down — silent */ }
+}, 1000);

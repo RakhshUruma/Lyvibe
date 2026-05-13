@@ -321,22 +321,28 @@ Entry generators: fade, pop, slide(fromDir:"up"|"down"|"left"|"right"), spin, sl
 Motion generators: breathe, heartbeat, sway, bounce, shake(axis:"x"|"y"|"both"), drift, glitch, flutter, ripple, pulseGlow, flicker
 
 # Scene elements (1..3 entries — REQUIRED, never empty unless vibe is purely abstract)
-SVG path quick library (viewBox "0 0 40 40"):
+SVG path quick library (viewBox "0 0 40 40"). Pick ones that ACTUALLY MATCH the vibe — don't fall back to "star" by default. Original SVG paths are also welcome.
 - butterfly: "M20,12 C16,4 4,4 4,16 C4,22 12,24 20,20 C28,24 36,22 36,16 C36,4 24,4 20,12 Z"
-- snowflake: "M20,2 L20,38 M2,20 L38,20 M6,6 L34,34 M34,6 L6,34"
-- star4:     "M20,4 L24,16 L37,16 L26,24 L31,37 L20,29 L9,37 L14,24 L3,16 L16,16 Z"
 - petal:     "M20,4 C32,8 36,20 28,32 C24,36 16,36 12,32 C4,20 8,8 20,4 Z"
-- spark:     "M20,4 L22,18 L36,20 L22,22 L20,36 L18,22 L4,20 L18,18 Z"
 - leaf:      "M4,20 C12,4 28,4 36,20 C28,36 12,36 4,20 Z"
+- spark:     "M20,4 L22,18 L36,20 L22,22 L20,36 L18,22 L4,20 L18,18 Z"
 - dot:       "M20,17 C21.6,17 23,18.4 23,20 C23,21.6 21.6,23 20,23 C18.4,23 17,21.6 17,20 C17,18.4 18.4,17 20,17 Z"
+- snowflake: "M20,2 L20,38 M2,20 L38,20 M6,6 L34,34 M34,6 L6,34"
+- ring:      "M20,6 C27.7,6 34,12.3 34,20 C34,27.7 27.7,34 20,34 C12.3,34 6,27.7 6,20 C6,12.3 12.3,6 20,6 M20,11 C15.0,11 11,15.0 11,20 C11,25.0 15.0,29 20,29 C25.0,29 29,25.0 29,20 C29,15.0 25.0,11 20,11 Z"
+- triangle:  "M20,6 L34,32 L6,32 Z"
 
-Motion types: drift (L/R edge sweep + sine wobble — butterfly/leaves), rain (top→bottom — snow/ash), rise (bottom→top — sparks/bubbles), orbit (circle around centre — stars), flock (loose swarm — fireflies).
+Motion types: drift (L/R edge sweep + sine wobble — butterfly/leaves), rain (top→bottom — snow/ash/petal), rise (bottom→top — sparks/bubbles/embers), orbit (circle around centre — slow ambient), flock (loose swarm — fireflies/dust).
 
-Each scene element shape: { "shape":"svg", "svgPath":"<one of above OR custom>", "svgViewBox":"0 0 40 40", "fill":"#hex", "sizeRange":[minPx,maxPx], "count":1-30, "spawnRate":0.3-3, "motion":{"type":"drift|rain|rise|orbit|flock","durationRange":[s,s],"sineAmplitude":px,"sinePeriod":ms}, "selfAnim":{"property":"scale|scaleX|rotate","range":[a,b],"periodMs":ms}, "opacityRange":[0..1,0..1], "blendMode":"screen" }
+Each scene element shape: { "shape":"svg", "svgPath":"<one of above OR your own>", "svgViewBox":"0 0 40 40", "fill":"#hex", "sizeRange":[minPx,maxPx], "count":1-30, "spawnRate":0.3-3, "motion":{"type":"drift|rain|rise|orbit|flock","durationRange":[s,s],"sineAmplitude":px,"sinePeriod":ms}, "selfAnim":{"property":"scale|scaleX|rotate","range":[a,b],"periodMs":ms}, "opacityRange":[0..1,0..1], "blendMode":"screen" }
 
-Pair vibe with shape:
-- horror→spark+dot, dream→butterfly+petal, cyber→spark+dot, snow→snowflake+dot,
-  forest→leaf+dot, flame→spark+dot, aqua→dot+circle, festive→star4+spark, etc.
+Vibe → shape suggestions (MIX, don't repeat the same shape across moods):
+- horror   → spark+dot (red),  cyber → spark+dot (cyan/magenta)
+- dream    → butterfly+petal,  forest → leaf+dot
+- flame    → spark+dot (orange), aqua → ring+dot (blue)
+- snow     → snowflake+dot,    folk  → leaf+petal
+- minimal  → ring,             grand → custom geometry
+
+DO NOT default to star shapes — use original svgPath if no library entry fits.
 
 Rules:
 - useTypewriter MUST be true. Pick reveal style matching vibe.

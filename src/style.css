@@ -186,8 +186,9 @@ body.paused-edit .line.dragging {
 .toggle:hover { color: var(--ui-fg); }
 
 .panel-body {
-  padding: 14px 16px 16px;
+  padding: 14px 16px 24px;
   overflow-y: auto;
+  overscroll-behavior: contain;
   display: flex; flex-direction: column; gap: 4px;
   flex: 1 1 auto;
   min-height: 0;            /* lets the flex child actually shrink + scroll */
@@ -220,7 +221,17 @@ body.paused-edit .line.dragging {
   margin-top: 4px;
 }
 .field.mono, textarea.field { font-family: 'JetBrains Mono','SF Mono','Consolas',monospace; }
-textarea.field { resize: vertical; }
+textarea.field {
+  resize: vertical;
+  min-height: 2.6em;
+  max-height: 40vh;          /* keep textarea from swallowing the panel */
+  box-sizing: border-box;
+}
+textarea.field.drop-hover {
+  border-color: var(--ui-accent);
+  background: rgba(111,233,255,0.08);
+  box-shadow: 0 0 0 2px rgba(111,233,255,0.25), inset 0 0 12px rgba(111,233,255,0.15);
+}
 .field::placeholder { color: var(--ui-faint); }
 .field:focus {
   outline: none;

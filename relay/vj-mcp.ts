@@ -18,6 +18,8 @@
  */
 
 import http from "node:http";
+import fs from "node:fs/promises";
+import path from "node:path";
 import { spawn } from "node:child_process";
 import Anthropic from "@anthropic-ai/sdk";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
@@ -165,6 +167,10 @@ const CORS_HEADERS = {
   "access-control-max-age": "600",
 };
 
+// pending mood pushed from Claude side; consumed by next /pull-mood
+let pendingMood: unknown = null;
+let pendingMoodId: string | null = null;
+
 const httpServer = http.createServer(async (req, res) => {
   // CORS preflight needs the full set of allow-* headers, not just 204.
   // Without them the browser blocks the subsequent POST → "Failed to fetch".
@@ -210,6 +216,71 @@ const httpServer = http.createServer(async (req, res) => {
     } catch (e) {
       return json(res, 500, { error: e instanceof Error ? e.message : String(e) });
     }
+  }
+
+  // === Live state sync — browser POSTs current mood/lyrics; Claude reads files ===
+  if (req.method === "POST" && req.url === "/sync") {
+    try {
+      const body = await readBody(req);
+      const stateDir = path.resolve(process.cwd(), ".state");
+      await fs.mkdir(stateDir, { recursive: true });
+      const writes: string[] = [];
+      const ts = new Date().toISOString();
+      if (body.mood !== undefined) {
+        await fs.writeFile(path.join(stateDir, "current-mood.json"),
+          JSON.stringify({ updatedAt: ts, mood: body.mood }, null, 2));
+        writes.push("mood");
+      }
+      if (body.lyrics !== undefined) {
+        await fs.writeFile(path.join(stateDir, "current-lyrics.json"),
+          JSON.stringify({ updatedAt: ts, lyrics: body.lyrics }, null, 2));
+        writes.push("lyrics");
+      }
+      if (body.meta !== undefined) {
+        await fs.writeFile(path.join(stateDir, "current-meta.json"),
+          JSON.stringify({ updatedAt: ts, ...body.meta }, null, 2));
+        writes.push("meta");
+      }
+      return json(res, 200, { ok: true, wrote: writes });
+    } catch (e) {
+      return json(res, 500, { error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  if (req.method === "GET" && req.url === "/state") {
+    try {
+      const stateDir = path.resolve(process.cwd(), ".state");
+      const read = async (name: string) => {
+        try { return JSON.parse(await fs.readFile(path.join(stateDir, name), "utf-8")); }
+        catch { return null; }
+      };
+      return json(res, 200, {
+        mood:   await read("current-mood.json"),
+        lyrics: await read("current-lyrics.json"),
+        meta:   await read("current-meta.json"),
+      });
+    } catch (e) {
+      return json(res, 500, { error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+
+  // === Push from Claude → buffer; browser polls /pull-mood to apply ===
+  if (req.method === "POST" && req.url === "/push-mood") {
+    try {
+      const body = await readBody(req);
+      if (!body || typeof body.mood !== "object") return json(res, 400, { error: "mood object required" });
+      pendingMood = body.mood;
+      pendingMoodId = `m${Date.now()}`;
+      return json(res, 200, { ok: true, id: pendingMoodId });
+    } catch (e) {
+      return json(res, 500, { error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+  if (req.method === "GET" && req.url === "/pull-mood") {
+    if (!pendingMood) return json(res, 200, { mood: null });
+    const out = { mood: pendingMood, id: pendingMoodId };
+    pendingMood = null; pendingMoodId = null;
+    return json(res, 200, out);
   }
 
   if (req.method === "POST" && req.url === "/validate") {
