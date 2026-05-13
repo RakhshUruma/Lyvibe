@@ -104,7 +104,82 @@ export const normalizeMood = (raw: any): Mood => {
     sceneElements:  Array.isArray(raw?.sceneElements)
       ? raw.sceneElements.map(normSceneElement).filter(Boolean) as SceneElement[]
       : [],
+    variants: normVariants(raw?.variants),
+    shaderBg: normShaderBg(raw?.shaderBg),
   };
+};
+
+const normVariants = (raw: any): Record<string, Partial<Mood>> | undefined => {
+  if (!raw || typeof raw !== "object") return undefined;
+  const out: Record<string, Partial<Mood>> = {};
+  for (const [k, v] of Object.entries(raw)) {
+    if (!v || typeof v !== "object") continue;
+    // Variants are PARTIAL — pass through user-supplied fields only; do
+    // not call normalizeMood which would fill defaults and overwrite the
+    // base mood. Just sanitize CSS-bearing arrays/strings.
+    const patch: Partial<Mood> = {};
+    const v_ = v as any;
+    if (typeof v_.bg === "string") patch.bg = v_.bg;
+    if (typeof v_.accent === "string") patch.accent = v_.accent;
+    if (typeof v_.hot === "string") patch.hot = v_.hot;
+    if (typeof v_.cool === "string") patch.cool = v_.cool;
+    if (typeof v_.color === "string") patch.color = v_.color;
+    if (typeof v_.font === "string") patch.font = v_.font;
+    if (typeof v_.weight === "number") patch.weight = v_.weight;
+    if (typeof v_.blur === "number") patch.blur = v_.blur;
+    if (typeof v_.rgbSplit === "number") patch.rgbSplit = v_.rgbSplit;
+    if (typeof v_.tilt === "number") patch.tilt = v_.tilt;
+    if (typeof v_.glitchRate === "number") patch.glitchRate = v_.glitchRate;
+    if (typeof v_.ghostRate  === "number") patch.ghostRate  = v_.ghostRate;
+    if (typeof v_.motionRate === "number") patch.motionRate = v_.motionRate;
+    if (typeof v_.bgSwapRate === "number") patch.bgSwapRate = v_.bgSwapRate;
+    if (typeof v_.lineExtraCss === "string") patch.lineExtraCss = sanitizeCss(v_.lineExtraCss);
+    if (Array.isArray(v_.bgCssVariants))
+      patch.bgCssVariants = v_.bgCssVariants.map(sanitizeCss).filter(Boolean);
+    if (Array.isArray(v_.entryKeyframes))
+      patch.entryKeyframes = v_.entryKeyframes.map((k: any, i: number) => normKeyframe(k, `${k}-entry${i}`));
+    if (Array.isArray(v_.motionKeyframes))
+      patch.motionKeyframes = v_.motionKeyframes.map((k: any, i: number) => normKeyframe(k, `${k}-motion${i}`));
+    if (Array.isArray(v_.bgKeyframes))
+      patch.bgKeyframes = v_.bgKeyframes.map((k: any, i: number) => normKeyframe(k, `${k}-bgkf${i}`));
+    if (Array.isArray(v_.sceneElements))
+      patch.sceneElements = v_.sceneElements.map(normSceneElement).filter(Boolean) as SceneElement[];
+    if (v_.shaderBg) patch.shaderBg = normShaderBg(v_.shaderBg);
+    out[k] = patch;
+  }
+  return Object.keys(out).length ? out : undefined;
+};
+
+const normShaderBg = (raw: any): Mood["shaderBg"] | undefined => {
+  if (!raw || typeof raw !== "object" || typeof raw.fragment !== "string") return undefined;
+  // strip nothing — GLSL is sandboxed by the WebGL compiler. Just length-cap.
+  const fragment = raw.fragment.slice(0, 16000);
+  let uniforms: Record<string, number[]> | undefined;
+  if (raw.uniforms && typeof raw.uniforms === "object") {
+    uniforms = {};
+    for (const [name, val] of Object.entries(raw.uniforms)) {
+      if (!/^[a-zA-Z_][a-zA-Z0-9_]{0,31}$/.test(name)) continue;
+      if (!Array.isArray(val)) continue;
+      const v = val.slice(0, 4).map(Number).filter(Number.isFinite);
+      if (v.length >= 1 && v.length <= 4) uniforms[name] = v;
+    }
+    if (!Object.keys(uniforms).length) uniforms = undefined;
+  }
+  return { fragment, uniforms };
+};
+
+/**
+ * Merge a partial mood (a variant) on top of a fully-normalized base mood.
+ * Keyframe / scene arrays REPLACE the base when present in the patch; scalars
+ * only override when defined. The returned mood is safe to applyMood().
+ */
+export const mergeMoodVariant = (base: Mood, patch: Partial<Mood> | undefined): Mood => {
+  if (!patch) return base;
+  return {
+    ...base,
+    ...patch,
+    typewriter: patch.typewriter ? { ...base.typewriter, ...patch.typewriter } : base.typewriter,
+  } as Mood;
 };
 
 const REVEAL_VALID = ["fade","drop","scale","blur","rise","shatter","type"] as const;

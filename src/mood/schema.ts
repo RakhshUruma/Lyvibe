@@ -61,6 +61,21 @@ export type Mood = {
    *  fall / orbit on the stage independently of the lyric line.
    *  Empty array (default) = no scene particles. */
   sceneElements: SceneElement[];
+
+  /** Per-section overrides — when a segment's `section` (verse/chorus/…)
+   *  matches a key here, the matching partial mood is merged on top of
+   *  this base mood for that segment. Lets the chorus burn brighter, the
+   *  bridge calm down, etc. */
+  variants?: Record<string, Partial<Mood>>;
+
+  /** Optional fragment-shader background. When set, replaces the 2D canvas
+   *  bg engine. `fragment` is a GLSL ES 1.0 shader body that has access to
+   *  uniforms: u_time, u_resolution, u_bass, u_mid, u_treble, u_kick,
+   *  u_intensity, plus any user uniforms named below (vec values only). */
+  shaderBg?: {
+    fragment: string;
+    uniforms?: Record<string, number[]>;
+  };
 };
 
 export const MOOD_JSON_SCHEMA = {

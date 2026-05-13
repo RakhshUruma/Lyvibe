@@ -1,9 +1,10 @@
 import "./style.css";
 
 import { CanvasBg, type BgMode } from "./stage/canvas-bg";
+import { ShaderBg } from "./stage/shader-bg";
 import { LineRenderer } from "./stage/lines";
 import { PRESETS } from "./mood/presets";
-import { applyMood, normalizeMood } from "./mood/normalize";
+import { applyMood, normalizeMood, mergeMoodVariant } from "./mood/normalize";
 import { generateMood, probeMoodSources } from "./mood/dispatcher";
 import type { Mood } from "./mood/schema";
 import { transcribe, probeASR } from "./asr/dispatcher";
@@ -25,6 +26,7 @@ import { analyzeVibe } from "./mood/vibe-analyze";
 
 const audio  = document.getElementById("audio") as HTMLAudioElement;
 const bg     = new CanvasBg(document.getElementById("bgCanvas") as HTMLCanvasElement);
+const shaderBg = new ShaderBg(document.getElementById("shaderCanvas") as HTMLCanvasElement, () => state.intensity);
 const lines  = new LineRenderer();
 const transport = new Transport(audio);
 const particleLayer = document.getElementById("particleLayer")!;
@@ -42,6 +44,10 @@ const state: {
   audioFile: File | null;
   projectId: string | null;
   lastIdx: number;
+  /** Last section that was applied to the stage. Tracked separately from
+   *  lastIdx so we only re-apply mood when crossing a section boundary,
+   *  not every segment. */
+  lastSection: string | null;
   moodKey: string;
   intensity: number;
 } = {
@@ -50,6 +56,7 @@ const state: {
   audioFile: null,
   projectId: null,
   lastIdx: -1,
+  lastSection: null,
   moodKey: "cyber",
   intensity: parseFloat(localStorage.getItem("vj.intensity") ?? "1") || 1,
 };
@@ -94,6 +101,22 @@ function scaleMood(m: Mood, k: number): Mood {
 }
 
 bg.start();
+
+/** Apply a SCALED mood object to every stage layer in one call. Drop-in
+ *  replacement for the `applyMood / lines.setMood / particleEngine.setElements`
+ *  trio scattered through the file. Also toggles the WebGL shader bg. */
+function applyFullMood(scaled: Mood): void {
+  applyMood(scaled);
+  lines.setMood(scaled);
+  particleEngine.setElements(scaled.sceneElements ?? []);
+  if (scaled.shaderBg) {
+    shaderBg.setShader(scaled.shaderBg);
+    bg.stop();
+  } else {
+    shaderBg.clear();
+    bg.start();
+  }
+}
 
 // =====================================================================
 // initial mood + status probe
@@ -141,8 +164,7 @@ intensityEl.addEventListener("input", () => {
   renderIntensity();
   // re-apply current mood with new intensity (no full re-build of CSS — vars only need scaled rates)
   const scaled = scaleMood(state.mood, state.intensity);
-  applyMood(scaled); lines.setMood(scaled);
-  particleEngine.setElements(scaled.sceneElements ?? []);
+  applyFullMood(scaled);
 });
 intensityEl.addEventListener("change", () => {
   try { localStorage.setItem("vj.intensity", String(state.intensity)); } catch {}
@@ -173,14 +195,14 @@ document.getElementById("moodGenBtn")!.addEventListener("click", async () => {
         setMessage(`◐ STAGE 2 / 2 · brief: "${preview}…"`, "busy");
       },
     });
-    state.mood = r.mood; state.moodKey = "custom";
+    state.mood = r.mood; state.moodKey = "custom"; state.lastSection = null;
     (PRESETS as any).custom = r.mood;
     const customOpt = document.getElementById("customOption") as HTMLOptionElement;
     customOpt.hidden = false;
     (document.getElementById("presetSelect") as HTMLSelectElement).value = "custom";
     clearAnchors();
     const scaled = scaleMood(r.mood, state.intensity);
-    applyMood(scaled); lines.setMood(scaled); particleEngine.setElements(scaled.sceneElements ?? []);
+    applyFullMood(scaled);
     repaintCurrentLine();
     document.getElementById("moodMeta")!.textContent = `custom · ${r.status.source}`;
     // Push the generated mood JSON into the paste textarea so the user
@@ -212,14 +234,14 @@ document.getElementById("moodApplyBtn")!.addEventListener("click", () => {
   const txt = (document.getElementById("moodJson") as HTMLTextAreaElement).value;
   try {
     const m = normalizeMood(JSON.parse(txt));
-    state.mood = m; state.moodKey = "custom";
+    state.mood = m; state.moodKey = "custom"; state.lastSection = null;
     (PRESETS as any).custom = m;
     const customOpt = document.getElementById("customOption") as HTMLOptionElement;
     customOpt.hidden = false;
     (document.getElementById("presetSelect") as HTMLSelectElement).value = "custom";
     clearAnchors();
     const scaled = scaleMood(m, state.intensity);
-    applyMood(scaled); lines.setMood(scaled); particleEngine.setElements(scaled.sceneElements ?? []);
+    applyFullMood(scaled);
     repaintCurrentLine();
     document.getElementById("moodMeta")!.textContent = "custom · pasted";
     setMessage("✓ pasted mood applied — saved as CUSTOM preset", "ok");
@@ -272,9 +294,9 @@ function applyPreset(key: string) {
   const m = PRESETS[key];
   if (!m) return;
   state.mood = m; state.moodKey = key;
+  state.lastSection = null;     // reset variant tracking when preset changes
   const scaled = scaleMood(m, state.intensity);
-  applyMood(scaled); lines.setMood(scaled);
-  particleEngine.setElements(scaled.sceneElements ?? []);
+  applyFullMood(scaled);
   document.getElementById("moodMeta")!.textContent = key;
   bg.setMode(presetToBgMode(key));
   repaintCurrentLine();
@@ -485,6 +507,17 @@ transport.onSeek = (t) => { audio.currentTime = t; };
 // Playback ticker → show/hide lines
 // =====================================================================
 
+/** Re-applies mood with the patch for `section` merged on top. Cheap when
+ *  there is no patch (just returns base scaled mood). Re-injects keyframes,
+ *  swaps bg variants, refreshes scene particles. */
+function applyMoodForSection(section: string | null | undefined): void {
+  const base = state.mood;
+  const patch = section && base.variants ? base.variants[section] : undefined;
+  const merged = patch ? mergeMoodVariant(base, patch) : base;
+  const scaled = scaleMood(merged, state.intensity);
+  applyFullMood(scaled);
+}
+
 audio.addEventListener("timeupdate", () => {
   const t = audio.currentTime;
   const i = indexAt(state.lyrics.segments, t);
@@ -492,9 +525,19 @@ audio.addEventListener("timeupdate", () => {
     state.lastIdx = i;
     if (i >= 0) {
       const seg = state.lyrics.segments[i]!;
+      // section boundary → swap mood variant
+      const sec = seg.section ?? null;
+      if (sec !== state.lastSection) {
+        state.lastSection = sec;
+        applyMoodForSection(sec);
+      }
       if (t <= seg.end + 0.1) lines.show(seg, i);
     } else {
       lines.clear();
+      if (state.lastSection !== null) {
+        state.lastSection = null;
+        applyMoodForSection(null);
+      }
     }
   } else if (i >= 0) {
     const seg = state.lyrics.segments[i]!;
@@ -788,7 +831,7 @@ setInterval(async () => {
     if (!j.mood || !j.id || j.id === lastPulledId) return;
     lastPulledId = j.id;
     const m = normalizeMood(j.mood);
-    state.mood = m; state.moodKey = "custom";
+    state.mood = m; state.moodKey = "custom"; state.lastSection = null;
     (PRESETS as any).custom = m;
     const customOpt = document.getElementById("customOption") as HTMLOptionElement | null;
     if (customOpt) customOpt.hidden = false;
@@ -796,7 +839,7 @@ setInterval(async () => {
     if (sel) sel.value = "custom";
     clearAnchors();
     const scaled = scaleMood(m, state.intensity);
-    applyMood(scaled); lines.setMood(scaled); particleEngine.setElements(scaled.sceneElements ?? []);
+    applyFullMood(scaled);
     repaintCurrentLine();
     document.getElementById("moodMeta")!.textContent = "custom · from Claude";
     setMessage("✓ mood pushed from Claude — applied", "ok");
