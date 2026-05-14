@@ -170,6 +170,8 @@ const CORS_HEADERS = {
 // pending mood pushed from Claude side; consumed by next /pull-mood
 let pendingMood: unknown = null;
 let pendingMoodId: string | null = null;
+let pendingLyrics: unknown = null;
+let pendingLyricsId: string | null = null;
 
 const httpServer = http.createServer(async (req, res) => {
   // CORS preflight needs the full set of allow-* headers, not just 204.
@@ -280,6 +282,23 @@ const httpServer = http.createServer(async (req, res) => {
     if (!pendingMood) return json(res, 200, { mood: null });
     const out = { mood: pendingMood, id: pendingMoodId };
     pendingMood = null; pendingMoodId = null;
+    return json(res, 200, out);
+  }
+  if (req.method === "POST" && req.url === "/push-lyrics") {
+    try {
+      const body = await readBody(req);
+      if (!body || !Array.isArray(body.lyrics?.segments)) return json(res, 400, { error: "lyrics.segments[] required" });
+      pendingLyrics = body.lyrics;
+      pendingLyricsId = `l${Date.now()}`;
+      return json(res, 200, { ok: true, id: pendingLyricsId });
+    } catch (e) {
+      return json(res, 500, { error: e instanceof Error ? e.message : String(e) });
+    }
+  }
+  if (req.method === "GET" && req.url === "/pull-lyrics") {
+    if (!pendingLyrics) return json(res, 200, { lyrics: null });
+    const out = { lyrics: pendingLyrics, id: pendingLyricsId };
+    pendingLyrics = null; pendingLyricsId = null;
     return json(res, 200, out);
   }
 

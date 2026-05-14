@@ -51,6 +51,9 @@ html, body {
 #stage {
   position: fixed; inset: 0;
   background: var(--bg);
+  perspective: 1200px;
+  transform-origin: center center;
+  /* mood.cameraTransform writes to .style.transform; transition lives there too */
 }
 #bgCanvas {
   position: absolute; inset: 0; width: 100%; height: 100%;
@@ -80,6 +83,42 @@ html, body {
 #fxLayer {
   position: absolute; inset: 0; z-index: 51;
   pointer-events: none;
+}
+
+/* ===== Mood event effects (timestamp-driven flashes/zooms/shockwaves) ===== */
+.fx-flash {
+  position: absolute; inset: 0;
+  pointer-events: none;
+  mix-blend-mode: screen;
+  animation: vjFxFlash 220ms ease-out forwards;
+  will-change: opacity;
+}
+@keyframes vjFxFlash {
+  0%   { opacity: 0; }
+  10%  { opacity: 1; }
+  100% { opacity: 0; }
+}
+.fx-shockwave {
+  position: absolute; left: 50%; top: 50%;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  border: 3px solid var(--wave-color, rgba(255,255,255,0.7));
+  transform: translate(-50%, -50%) scale(1);
+  pointer-events: none;
+  mix-blend-mode: screen;
+  animation: vjFxShockwave 700ms cubic-bezier(.2,.7,.4,1) forwards;
+}
+@keyframes vjFxShockwave {
+  0%   { opacity: 1; transform: translate(-50%,-50%) scale(1);     border-width: 3px; }
+  60%  { opacity: 0.7; }
+  100% { opacity: 0; transform: translate(-50%,-50%) scale(120);   border-width: 0.5px; }
+}
+@keyframes vjShake {
+  0%,100%{ transform: translate(0,0); }
+  20%{ transform: translate(calc(var(--shake-amp,6px) * -1), calc(var(--shake-amp,6px) * 0.5)); }
+  40%{ transform: translate(var(--shake-amp,6px), calc(var(--shake-amp,6px) * -0.4)); }
+  60%{ transform: translate(calc(var(--shake-amp,6px) * -0.7), var(--shake-amp,6px)); }
+  80%{ transform: translate(calc(var(--shake-amp,6px) * 0.4), calc(var(--shake-amp,6px) * -0.7)); }
 }
 
 /* ===== Lyric line ===== */

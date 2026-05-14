@@ -71,7 +71,7 @@ export const normalizeMood = (raw: any): Mood => {
     ? raw.bgKeyframes.map((k: any, i: number) => normKeyframe(k, `bg${i}`))
     : [];
 
-  return {
+  const mood: Mood = {
     bg:      str(raw?.bg, "#0a0a12"),
     accent:  str(raw?.accent, "#6fe9ff"),
     hot:     str(raw?.hot, "#ff2da0"),
@@ -106,7 +106,70 @@ export const normalizeMood = (raw: any): Mood => {
       : [],
     variants: normVariants(raw?.variants),
     shaderBg: normShaderBg(raw?.shaderBg),
+    bpm:      typeof raw?.bpm === "number" && raw.bpm > 30 && raw.bpm < 400 ? raw.bpm : undefined,
+    events:   normEvents(raw?.events),
+    cameraTransform: typeof raw?.cameraTransform === "string" ? raw.cameraTransform : undefined,
+    palette:  normPalette(raw?.palette),
   };
+  // If a palette spec is given, derive colors from it (overrides explicit).
+  if (mood.palette) applyPaletteRule(mood);
+  return mood;
+};
+
+const normPalette = (raw: any): Mood["palette"] | undefined => {
+  if (!raw || typeof raw !== "object" || typeof raw.baseHue !== "number") return undefined;
+  return {
+    baseHue: ((raw.baseHue % 360) + 360) % 360,
+    rule: ["complementary","triad","analogous","split","tetrad"].includes(raw.rule) ? raw.rule : "complementary",
+    saturation: typeof raw.saturation === "number" ? Math.max(0, Math.min(1, raw.saturation)) : 0.85,
+    lightness:  typeof raw.lightness  === "number" ? Math.max(0, Math.min(1, raw.lightness))  : 0.55,
+  };
+};
+
+const hsl = (h: number, s: number, l: number): string => {
+  return `hsl(${(h%360+360)%360} ${(s*100).toFixed(0)}% ${(l*100).toFixed(0)}%)`;
+};
+const applyPaletteRule = (m: Mood): void => {
+  const p = m.palette!; const s = p.saturation!, l = p.lightness!;
+  const base = p.baseHue;
+  let hAccent = base, hHot = base + 180, hCool = base + 60;
+  if (p.rule === "triad")        { hAccent = base; hHot = base + 120; hCool = base + 240; }
+  else if (p.rule === "analogous") { hAccent = base; hHot = base + 30;  hCool = base - 30; }
+  else if (p.rule === "split")    { hAccent = base; hHot = base + 150; hCool = base + 210; }
+  else if (p.rule === "tetrad")   { hAccent = base; hHot = base + 90;  hCool = base + 270; }
+  m.accent = hsl(hAccent, s, l);
+  m.hot    = hsl(hHot, Math.min(1, s + 0.05), Math.min(0.7, l + 0.1));
+  m.cool   = hsl(hCool, Math.max(0, s - 0.1), Math.max(0.2, l - 0.1));
+  // bg = darken base
+  m.bg     = hsl(base, Math.min(0.4, s * 0.5), Math.max(0.04, l * 0.1));
+};
+
+const normEvents = (raw: any): import("./schema").MoodEvent[] | undefined => {
+  if (!Array.isArray(raw)) return undefined;
+  const out: import("./schema").MoodEvent[] = [];
+  for (const e of raw) {
+    if (!e || typeof e !== "object") continue;
+    const id = typeof e.id === "string" ? e.id : `evt_${out.length}`;
+    const at = Number(e.at);
+    if (!Number.isFinite(at)) continue;
+    const kind = e.kind;
+    if (kind === "flash" || kind === "shockwave") {
+      out.push({ id, at, kind,
+        color: typeof e.color === "string" ? e.color : undefined,
+        durationMs: typeof e.durationMs === "number" ? Math.max(40, Math.min(3000, e.durationMs)) : undefined });
+    } else if (kind === "zoom") {
+      out.push({ id, at, kind, factor: Number(e.factor) || 1.3,
+        durationMs: typeof e.durationMs === "number" ? Math.max(40, Math.min(3000, e.durationMs)) : 400 });
+    } else if (kind === "shake") {
+      out.push({ id, at, kind, amplitude: Number(e.amplitude) || 6,
+        durationMs: typeof e.durationMs === "number" ? Math.max(40, Math.min(3000, e.durationMs)) : 350 });
+    } else if (kind === "bgSwap") {
+      out.push({ id, at, kind, variantIndex: typeof e.variantIndex === "number" ? e.variantIndex : undefined });
+    } else if (kind === "applyVariant") {
+      if (typeof e.variant === "string") out.push({ id, at, kind, variant: e.variant });
+    }
+  }
+  return out.length ? out.sort((a, b) => a.at - b.at) : undefined;
 };
 
 const normVariants = (raw: any): Record<string, Partial<Mood>> | undefined => {
@@ -211,7 +274,8 @@ const normSceneElement = (raw: any): SceneElement | null => {
   const count = Math.max(1, Math.min(80, Math.round(Number(raw.count) || 6)));
   const out: SceneElement = {
     shape,
-    svgPath: typeof raw.svgPath === "string" ? raw.svgPath : undefined,
+    svgPath:  typeof raw.svgPath === "string" ? raw.svgPath : undefined,
+    svgPaths: Array.isArray(raw.svgPaths) ? raw.svgPaths.filter((s: any) => typeof s === "string").slice(0, 8) : undefined,
     svgViewBox: typeof raw.svgViewBox === "string" ? raw.svgViewBox : undefined,
     emoji: typeof raw.emoji === "string" ? raw.emoji.slice(0, 4) : undefined,
     fill: typeof raw.fill === "string" ? raw.fill : undefined,
@@ -268,6 +332,14 @@ export const applyMood = (mood: Mood): void => {
   root.setProperty("--line-blur", `${mood.blur}px`);
 
   ensureBgLayers();
+
+  // stage camera transform — applied to #stage so the whole scene moves
+  const stage = document.getElementById("stage");
+  if (stage) {
+    stage.style.transform = mood.cameraTransform || "";
+    stage.style.transformOrigin = "center center";
+    stage.style.transition = "transform 800ms cubic-bezier(.4,0,.2,1)";
+  }
 
   const kfCss = [
     ...mood.entryKeyframes,

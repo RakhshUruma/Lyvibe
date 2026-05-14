@@ -22,6 +22,8 @@ type Particle = {
   dir: 1 | -1;             // for drift
   pathEl?: SVGPathElement; // for type=path
   pathLen?: number;
+  /** The inner SVG path element when shape=svg; used for shape morphing. */
+  shapePath?: SVGPathElement;
 };
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -75,6 +77,7 @@ const createShape = (el: SceneElement, sizePx: number): HTMLElement => {
     }
     svg.appendChild(path);
     wrap.appendChild(svg);
+    (wrap as any).__shapePath = path;
   }
   if (el.filter) wrap.style.filter = el.filter;
   return wrap;
@@ -208,6 +211,7 @@ export class ParticleEngine {
       dom, age: 0,
       duration: rand(el.motion.durationRange[0], el.motion.durationRange[1]),
       seed, spawnX, spawnY, size, dir,
+      shapePath: (dom as any).__shapePath,
     };
 
     if (el.motion.type === "path" && el.motion.pathD) {
@@ -228,8 +232,27 @@ export class ParticleEngine {
     this.buckets[idx]!.push(p);
   }
 
+  /** track last beat phase per element to detect beat zero-crossing for morph */
+  private lastBeatPhase = 1;
+  private beatStep = 0;
+
   private tick(dt: number): void {
     const w = window.innerWidth, h = window.innerHeight;
+    // beat zero-crossing → increment morph step
+    if (audioState.beat < this.lastBeatPhase) {
+      this.beatStep++;
+      // morph every shape that defines svgPaths
+      for (let i = 0; i < this.elements.length; i++) {
+        const el = this.elements[i]!;
+        if (!el.svgPaths || el.svgPaths.length < 2) continue;
+        const nextD = el.svgPaths[this.beatStep % el.svgPaths.length]!;
+        for (const p of this.buckets[i]!) {
+          if (p.shapePath) p.shapePath.setAttribute("d", nextD);
+        }
+      }
+    }
+    this.lastBeatPhase = audioState.beat;
+
     for (let i = 0; i < this.elements.length; i++) {
       const el = this.elements[i]!;
       const list = this.buckets[i]!;

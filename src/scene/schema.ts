@@ -37,6 +37,10 @@ export type SceneElement = {
   svgPath?: string;
   svgViewBox?: string;
   emoji?: string;
+  /** Beat-synced shape rotation — alternative svgPaths cycled through on
+   *  every beat. When set, overrides svgPath each beat. Use 2-8 entries
+   *  for triangle→square→circle morph kind of effect. */
+  svgPaths?: string[];
   /** Filled fill color (or "none"). Ignored if strokeOnly. */
   fill?: string;
   /** SVG stroke color. When set with strokeOnly:true, the path is drawn as

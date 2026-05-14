@@ -109,6 +109,7 @@ function applyFullMood(scaled: Mood): void {
   applyMood(scaled);
   lines.setMood(scaled);
   particleEngine.setElements(scaled.sceneElements ?? []);
+  if (scaled.bpm) audioState.bpm = scaled.bpm;
   if (scaled.shaderBg) {
     shaderBg.setShader(scaled.shaderBg);
     bg.stop();
@@ -543,7 +544,74 @@ audio.addEventListener("timeupdate", () => {
     const seg = state.lyrics.segments[i]!;
     if (t > seg.end) lines.clear();
   }
+  // events: fire each event once when crossed
+  runEventsAt(t);
 });
+
+// ─── Mood Events ────────────────────────────────────────────────
+// Pin-point one-shot effects at specific timestamps. Each event has an
+// id; once fired in this playback session, it won't refire unless the
+// user seeks backwards past it.
+const firedEvents = new Set<string>();
+let lastEventsT = 0;
+
+audio.addEventListener("seeking", () => {
+  // forget any events past the new time, so seeking back replays them
+  const t = audio.currentTime;
+  if (t < lastEventsT - 0.5) firedEvents.clear();
+  lastEventsT = t;
+});
+
+function runEventsAt(t: number): void {
+  const events = state.mood.events;
+  if (!events) return;
+  for (const e of events) {
+    if (firedEvents.has(e.id)) continue;
+    if (t < e.at) continue;
+    if (t > e.at + 1.2) { firedEvents.add(e.id); continue; } // missed window
+    firedEvents.add(e.id);
+    triggerEvent(e);
+  }
+  lastEventsT = t;
+}
+
+function triggerEvent(e: import("./mood/schema").MoodEvent): void {
+  const fxLayer = document.getElementById("fxLayer");
+  const stage = document.getElementById("stage");
+  if (!fxLayer || !stage) return;
+  if (e.kind === "flash") {
+    const flash = document.createElement("div");
+    flash.className = "fx-flash";
+    flash.style.background = e.color ?? "rgba(255,255,255,0.9)";
+    flash.style.animationDuration = `${e.durationMs ?? 220}ms`;
+    fxLayer.appendChild(flash);
+    setTimeout(() => flash.remove(), (e.durationMs ?? 220) + 50);
+  } else if (e.kind === "shockwave") {
+    const wave = document.createElement("div");
+    wave.className = "fx-shockwave";
+    wave.style.setProperty("--wave-color", e.color ?? "rgba(255,255,255,0.7)");
+    wave.style.animationDuration = `${e.durationMs ?? 700}ms`;
+    fxLayer.appendChild(wave);
+    setTimeout(() => wave.remove(), (e.durationMs ?? 700) + 50);
+  } else if (e.kind === "zoom") {
+    const prev = stage.style.transform;
+    stage.style.transition = `transform ${(e.durationMs ?? 400)/2}ms ease-out`;
+    stage.style.transform = `${prev} scale(${e.factor ?? 1.3})`;
+    setTimeout(() => {
+      stage.style.transition = `transform ${(e.durationMs ?? 400)/2}ms ease-in`;
+      stage.style.transform = prev;
+    }, (e.durationMs ?? 400) / 2);
+  } else if (e.kind === "shake") {
+    stage.style.animation = `vjShake ${e.durationMs ?? 350}ms steps(8)`;
+    stage.style.setProperty("--shake-amp", `${e.amplitude ?? 6}px`);
+    setTimeout(() => { stage.style.animation = ""; }, (e.durationMs ?? 350) + 50);
+  } else if (e.kind === "bgSwap") {
+    // delegated through existing swapBgVariant logic via state.mood
+    import("./mood/normalize").then(({ swapBgVariant }) => swapBgVariant(state.mood));
+  } else if (e.kind === "applyVariant") {
+    applyMoodForSection(e.variant);
+  }
+}
 
 // ---------------------------------------------------------------
 // drag-to-anchor while paused: grab the visible line and drop it.
@@ -705,6 +773,22 @@ audio.addEventListener("play", () => {
     audioState.energy = energy;
     audioState.kick   = kickEnvelope;
 
+    // 32-band log-spaced spectrum for shader / vis
+    const BANDS = 32;
+    const spec = audioState.spectrum;
+    for (let b = 0; b < BANDS; b++) {
+      const t0 = b / BANDS, t1 = (b + 1) / BANDS;
+      // log-mapped bin range
+      const i0 = Math.min(N - 1, Math.floor(Math.pow(N, t0)));
+      const i1 = Math.min(N,     Math.floor(Math.pow(N, t1)));
+      let sum = 0, cnt = 0;
+      for (let i = i0; i < Math.max(i0 + 1, i1); i++) { sum += g.data[i] ?? 0; cnt++; }
+      spec[b] = (sum / Math.max(1, cnt)) / 255;
+    }
+
+    // beat phase from bpm
+    audioState.beat = ((now / 1000) * (audioState.bpm / 60)) % 1;
+
     root.style.setProperty("--bass",   bass.toFixed(3));
     root.style.setProperty("--mid",    mid.toFixed(3));
     root.style.setProperty("--treble", treble.toFixed(3));
@@ -821,6 +905,28 @@ async function persistLyrics() {
 // them from .state/*.json. Polls every 1s and POSTs only when changed.
 // Silent on failure (relay may not be running).
 // =====================================================================
+// Pull pushed lyrics from Claude side — 2s poll, applies if present.
+let lastPulledLyricsId = "";
+setInterval(async () => {
+  try {
+    const r = await fetch("http://localhost:8787/pull-lyrics");
+    if (!r.ok) return;
+    const j = await r.json();
+    if (!j.lyrics || !j.id || j.id === lastPulledLyricsId) return;
+    lastPulledLyricsId = j.id;
+    const segs: Segment[] = (j.lyrics.segments ?? []).map((s: any) => ({
+      start: Number(s.start ?? 0),
+      end:   Number(s.end ?? 0),
+      text:  String(s.text ?? "").trim(),
+      section: typeof s.section === "string" ? s.section : undefined,
+    })).filter((s: Segment) => s.text);
+    state.lyrics = sortLyrics({ segments: segs, language: j.lyrics.language });
+    state.lastIdx = -2; state.lastSection = null;
+    persistLyrics();
+    setMessage(`✓ lyrics pushed from Claude — ${segs.length} segments`, "ok");
+  } catch { /* relay down */ }
+}, 2000);
+
 // Pull pushed moods from Claude side — 2s poll, applies if present.
 let lastPulledId = "";
 setInterval(async () => {

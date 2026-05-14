@@ -71,12 +71,47 @@ export type Mood = {
   /** Optional fragment-shader background. When set, replaces the 2D canvas
    *  bg engine. `fragment` is a GLSL ES 1.0 shader body that has access to
    *  uniforms: u_time, u_resolution, u_bass, u_mid, u_treble, u_kick,
-   *  u_intensity, plus any user uniforms named below (vec values only). */
+   *  u_energy, u_beat, u_spectrum[32], u_intensity, u_prev (sampler2D),
+   *  u_mouse, plus stdlib helpers (hash/snoise/fbm/voronoi/palette/sdf…).
+   *  When `feedback: true`, u_prev samples the previous frame for trails. */
   shaderBg?: {
     fragment: string;
     uniforms?: Record<string, number[]>;
+    feedback?: boolean;
+  };
+
+  /** BPM driving the u_beat phase uniform + beat-locked features
+   *  (sceneElement.svgPaths cycle). Default 120. */
+  bpm?: number;
+
+  /** Per-second triggered one-shot events. Fires when audio.currentTime
+   *  crosses `at`. Idempotent — each event id fires at most once per
+   *  playback pass. Use cases:落ちサビフラッシュ, mid-song bg swap,
+   *  per-section shockwave. */
+  events?: MoodEvent[];
+
+  /** CSS3D transform applied to the #stage element. Animated via the
+   *  string interpolated like an animation; one CSS transform value. */
+  cameraTransform?: string;
+
+  /** Generative palette spec — if present, normalize derives accent/hot/
+   *  cool/color from a base hue + harmony rule, overriding any explicit
+   *  colors above. Useful for LLMs that pick a vibe but not 4 hex codes. */
+  palette?: {
+    baseHue: number;            // 0..360
+    rule?: "complementary" | "triad" | "analogous" | "split" | "tetrad";
+    saturation?: number;        // 0..1
+    lightness?: number;         // 0..1
   };
 };
+
+export type MoodEvent =
+  | { id: string; at: number; kind: "flash"; color?: string; durationMs?: number }
+  | { id: string; at: number; kind: "zoom";  factor?: number; durationMs?: number }
+  | { id: string; at: number; kind: "shake"; amplitude?: number; durationMs?: number }
+  | { id: string; at: number; kind: "shockwave"; color?: string; durationMs?: number }
+  | { id: string; at: number; kind: "bgSwap"; variantIndex?: number; }
+  | { id: string; at: number; kind: "applyVariant"; variant: string; };
 
 export const MOOD_JSON_SCHEMA = {
   type: "object",
