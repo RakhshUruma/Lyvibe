@@ -116,10 +116,12 @@ uniform float u_treble;
 uniform float u_kick;
 uniform float u_energy;
 uniform float u_beat;
-uniform float u_spectrum[32];
+uniform sampler2D u_spectrum_tex; // 32×1 spectrum (luminance)
 uniform float u_intensity;
 uniform sampler2D u_prev;
 uniform vec2  u_mouse;
+// spectrum read helper. x in 0..1 (low→high freq). Bands are log-spaced.
+float spectrum(float x){ return texture2D(u_spectrum_tex, vec2(x, 0.5)).r; }
 ` + STDLIB;
 
 type ShaderSpec = {
@@ -152,6 +154,9 @@ export class ShaderBg {
   private cur: "a" | "b" = "a";
   // 1×1 black fallback texture when feedback is off
   private blackTex: WebGLTexture | null = null;
+  // 32×1 spectrum texture, updated per frame
+  private spectrumTex: WebGLTexture | null = null;
+  private spectrumBuf: Uint8Array = new Uint8Array(32);
   private mouse: [number, number] = [0.5, 0.5];
 
   constructor(canvas: HTMLCanvasElement, intensityGetter?: () => number) {
@@ -172,6 +177,7 @@ export class ShaderBg {
     this.feedback = !!spec.feedback;
     this.resize();
     this.ensureBlackTex(gl);
+    this.ensureSpectrumTex(gl);
     if (this.feedback) this.ensureFeedbackTargets(gl);
 
     const fragSrc = FS_HEADER
@@ -209,7 +215,7 @@ export class ShaderBg {
       kick:      gl.getUniformLocation(prog, "u_kick")      ?? undefined,
       energy:    gl.getUniformLocation(prog, "u_energy")    ?? undefined,
       beat:      gl.getUniformLocation(prog, "u_beat")      ?? undefined,
-      spectrum:  gl.getUniformLocation(prog, "u_spectrum[0]") ?? undefined,
+      spectrum:  gl.getUniformLocation(prog, "u_spectrum_tex") ?? undefined,
       intensity: gl.getUniformLocation(prog, "u_intensity") ?? undefined,
       prev:      gl.getUniformLocation(prog, "u_prev")      ?? undefined,
       mouse:     gl.getUniformLocation(prog, "u_mouse")     ?? undefined,
@@ -267,10 +273,17 @@ export class ShaderBg {
     const src = this.cur === "a" ? this.fbA : this.fbB;
     const dst = this.cur === "a" ? this.fbB : this.fbA;
 
-    // bind u_prev: feedback source (or black)
+    // bind u_prev (slot 0): feedback source (or black)
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, this.feedback && src ? src.tex : this.blackTex!);
     if (this.u.prev) gl.uniform1i(this.u.prev, 0);
+
+    // upload spectrum (slot 1)
+    for (let i = 0; i < 32; i++) this.spectrumBuf[i] = Math.min(255, Math.floor(audioState.spectrum[i]! * 255));
+    gl.activeTexture(gl.TEXTURE1);
+    gl.bindTexture(gl.TEXTURE_2D, this.spectrumTex);
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, 32, 1, gl.LUMINANCE, gl.UNSIGNED_BYTE, this.spectrumBuf);
+    if (this.u.spectrum) gl.uniform1i(this.u.spectrum, 1);
 
     if (this.u.time)      gl.uniform1f(this.u.time, t);
     if (this.u.res)       gl.uniform2f(this.u.res, this.canvas.width, this.canvas.height);
@@ -280,7 +293,6 @@ export class ShaderBg {
     if (this.u.kick)      gl.uniform1f(this.u.kick, audioState.kick);
     if (this.u.energy)    gl.uniform1f(this.u.energy, audioState.energy);
     if (this.u.beat)      gl.uniform1f(this.u.beat, audioState.beat);
-    if (this.u.spectrum)  gl.uniform1fv(this.u.spectrum, audioState.spectrum);
     if (this.u.intensity) gl.uniform1f(this.u.intensity, this.intensityGetter());
     if (this.u.mouse)     gl.uniform2f(this.u.mouse, this.mouse[0], this.mouse[1]);
     for (const { loc, values } of this.userUniforms) {
@@ -292,22 +304,18 @@ export class ShaderBg {
     }
 
     if (this.feedback && dst) {
-      // render to feedback target, then copy/draw to screen
+      // 1) render full shader into dst FBO (writes the "future" frame using
+      //    u_prev = src texture set above)
       gl.bindFramebuffer(gl.FRAMEBUFFER, dst.fbo);
       gl.viewport(0, 0, this.canvas.width, this.canvas.height);
       gl.drawArrays(gl.TRIANGLES, 0, 3);
-      // now blit dst → screen by drawing once more (cheap; alternatively use a second prog)
+      // 2) present dst to screen — same shader, but u_prev now points at the
+      //    just-written dst (so screen sees the freshest result, not previous)
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       gl.activeTexture(gl.TEXTURE0);
       gl.bindTexture(gl.TEXTURE_2D, dst.tex);
-      // Re-run the same shader to screen would double the work. Cheaper:
-      // we already rendered to FBO, and the user's shader writes the final
-      // visual into dst.tex. To show on canvas without a separate "present"
-      // pass, we use the same shader but disable feedback contribution:
-      // simplest is to just redraw — webgl framebuffer→canvas needs blit
-      // via texture, requires a present shader. For now redraw at screen.
-      gl.bindTexture(gl.TEXTURE_2D, src ? src.tex : this.blackTex!); // u_prev for screen pass = previous
       gl.drawArrays(gl.TRIANGLES, 0, 3);
+      // swap: next frame's u_prev = this frame's dst
       this.cur = this.cur === "a" ? "b" : "a";
     } else {
       gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -325,6 +333,18 @@ export class ShaderBg {
       lines.push(`uniform ${type} ${name};`);
     }
     return lines.join("\n") + "\n";
+  }
+
+  private ensureSpectrumTex(gl: WebGLRenderingContext): void {
+    if (this.spectrumTex) return;
+    const t = gl.createTexture()!;
+    gl.bindTexture(gl.TEXTURE_2D, t);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.LUMINANCE, 32, 1, 0, gl.LUMINANCE, gl.UNSIGNED_BYTE, new Uint8Array(32));
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    this.spectrumTex = t;
   }
 
   private ensureBlackTex(gl: WebGLRenderingContext): void {
