@@ -172,7 +172,7 @@ export class ShaderBg {
 
   setShader(spec: ShaderSpec): void {
     this.clear();
-    const gl = (this.gl ??= this.canvas.getContext("webgl", { antialias: false, alpha: true, preserveDrawingBuffer: false })!);
+    const gl = (this.gl ??= this.canvas.getContext("webgl", { antialias: false, alpha: true, preserveDrawingBuffer: true })!);
     if (!gl) { console.warn("[shader-bg] WebGL not available"); return; }
     this.feedback = !!spec.feedback;
     // Make canvas visible BEFORE resize — otherwise clientWidth/Height read

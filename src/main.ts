@@ -110,11 +110,14 @@ function applyFullMood(scaled: Mood): void {
   lines.setMood(scaled);
   particleEngine.setElements(scaled.sceneElements ?? []);
   if (scaled.bpm) audioState.bpm = scaled.bpm;
+  const bgCanvas = document.getElementById("bgCanvas") as HTMLCanvasElement | null;
   if (scaled.shaderBg) {
     shaderBg.setShader(scaled.shaderBg);
     bg.stop();
+    if (bgCanvas) bgCanvas.style.display = "none";    // get the 2D bg out of the way
   } else {
     shaderBg.clear();
+    if (bgCanvas) bgCanvas.style.display = "block";
     bg.start();
   }
 }
