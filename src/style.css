@@ -61,7 +61,9 @@ html, body {
 }
 #shaderCanvas {
   position: absolute; inset: 0; width: 100%; height: 100%;
-  z-index: 1;          /* same plane as bgCanvas */
+  z-index: 3;          /* ABOVE bgCssLayer (z:2) — that layer uses
+                          isolation:isolate which clips lower z-index
+                          siblings out of the screen composite. */
   display: none;       /* only shown when a shader is active */
   pointer-events: none;
 }
