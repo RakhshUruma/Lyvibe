@@ -164,6 +164,31 @@ html, body {
   transition: scale 70ms ease-out;
 }
 .line .ch { display: inline-block; }
+/* Per-character free layout: each char becomes absolutely positioned
+   around the line's center anchor, in em units. .line itself is treated
+   as a 0×0 anchor; chars carry their own left/top from JS. */
+.line.per-char-layout {
+  width: 0; height: 0; display: block;
+  white-space: nowrap;
+}
+.line.per-char-layout .ch {
+  position: absolute;
+  transform: translate(-50%, -50%) rotate(var(--ch-rot, 0deg));
+  transform-origin: center;
+  white-space: nowrap;
+}
+/* Keyword emphasis: scale up, brighter, distinct color. */
+.line .ch.emph {
+  font-size: 1.5em;
+  font-weight: 900;
+  color: var(--hot, currentColor);
+  text-shadow: 0 0 18px var(--hot), 0 0 36px var(--accent), 0 0 8px #fff;
+  letter-spacing: 0.06em;
+  animation-duration: 0.7s !important;
+}
+.line.per-char-layout .ch.emph {
+  transform: translate(-50%, -50%) rotate(var(--ch-rot, 0deg)) scale(1.5);
+}
 
 /* Background gets a brief bright wash on kick. */
 #bgCssLayer, #bgCanvas {

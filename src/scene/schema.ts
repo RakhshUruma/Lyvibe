@@ -29,6 +29,13 @@ export type SceneMotion = {
   /** ms — sine wobble period. */
   sinePeriod?: number;
   rotateMode?: RotateMode;
+  /** Particle physics — gravity well that attracts (positive `force`) or
+   *  repels (negative) particles toward a point. Position in viewport %.
+   *  Multiple attractors compose. Force is unitless (1 = strong). */
+  attractors?: { x: number; y: number; force: number; radius?: number }[];
+  /** Bass-reactive scale on attractor force. 0 = ignore audio, 1 = full
+   *  reactivity (force × (1 + bass*1.5 + kick*2)). */
+  attractorReactivity?: number;
 };
 
 export type SceneElement = {

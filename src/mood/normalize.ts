@@ -293,6 +293,13 @@ const normSceneElement = (raw: any): SceneElement | null => {
       sineAmplitude: typeof raw.motion?.sineAmplitude === "number" ? raw.motion.sineAmplitude : undefined,
       sinePeriod:    typeof raw.motion?.sinePeriod === "number"    ? raw.motion.sinePeriod    : undefined,
       rotateMode:    ["follow-tangent","fixed","spin"].includes(raw.motion?.rotateMode) ? raw.motion.rotateMode : undefined,
+      attractors:    Array.isArray(raw.motion?.attractors)
+        ? raw.motion.attractors
+            .filter((a: any) => a && typeof a.x === "number" && typeof a.y === "number" && typeof a.force === "number")
+            .slice(0, 8)
+            .map((a: any) => ({ x: a.x, y: a.y, force: a.force, radius: typeof a.radius === "number" ? a.radius : undefined }))
+        : undefined,
+      attractorReactivity: typeof raw.motion?.attractorReactivity === "number" ? Math.max(0, Math.min(1, raw.motion.attractorReactivity)) : undefined,
     },
     selfAnim: raw.selfAnim && typeof raw.selfAnim === "object" && Array.isArray(raw.selfAnim.range) && raw.selfAnim.range.length === 2 ? {
       property: ["scaleX","scaleY","scale","rotate"].includes(raw.selfAnim.property) ? raw.selfAnim.property : "scale",

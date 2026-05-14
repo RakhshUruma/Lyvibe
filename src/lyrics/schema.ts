@@ -14,6 +14,20 @@ export type Segment = {
   anchorY?: number;
   /** User-pinned rotation in degrees. Overrides random tilt. */
   anchorR?: number;
+  /** Per-character layout — when set, characters fly to positions on an
+   *  arc/spiral/scatter pattern instead of stacking horizontally.
+   *  - "arc":     characters distributed along upward-curving arc
+   *  - "spiral":  characters spiral inward to center
+   *  - "scatter": each character lands at a random offset
+   *  - "rise":    characters rise from bottom to position with stagger
+   *  - "constellation": positions read from `charPositions` array directly */
+  layout?: "arc" | "spiral" | "scatter" | "rise" | "constellation";
+  /** When layout === "constellation", absolute positions per visible
+   *  character in viewport %. Length should match visible chars count. */
+  charPositions?: { x: number; y: number; rot?: number }[];
+  /** Indices of visible characters to emphasize (size↑, glow↑, separate
+   *  font/color). Applied via the `.ch.emph` class. */
+  emphasis?: number[];
 };
 
 export type Lyrics = {

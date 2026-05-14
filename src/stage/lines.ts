@@ -42,6 +42,13 @@ export class LineRenderer {
     // breaks survive the per-char split.
     const visible = [...seg.text].filter(c => c !== "\n");
     const total = visible.length;
+    const emphSet = new Set(seg.emphasis ?? []);
+    const layout = seg.layout;
+    // When layout is set, .line becomes a positioning ANCHOR rather than a
+    // flow container — each .ch absolutely positioned relative to it.
+    const usePerCharLayout = layout && layout !== "rise";
+    if (usePerCharLayout) line.classList.add("per-char-layout");
+
     let visIdx = 0;
     for (const c of [...seg.text]) {
       if (c === "\n") {
@@ -50,9 +57,16 @@ export class LineRenderer {
       }
       const s = document.createElement("span");
       s.className = "ch";
+      if (emphSet.has(visIdx)) s.classList.add("emph");
       s.textContent = c;
       s.style.setProperty("--ch-i", String(visIdx));
       s.style.setProperty("--ch-n", String(total));
+      if (usePerCharLayout) {
+        const pos = layoutCharPosition(layout!, visIdx, total, seg.charPositions);
+        s.style.left = `${pos.x}em`;
+        s.style.top  = `${pos.y}em`;
+        if (pos.rot != null) s.style.setProperty("--ch-rot", `${pos.rot}deg`);
+      }
       line.appendChild(s);
       visIdx++;
     }
@@ -166,6 +180,42 @@ export class LineRenderer {
 }
 
 const pick = <T>(arr: T[]): T | null => arr.length ? arr[Math.floor(Math.random() * arr.length)]! : null;
+
+/** Position the i-th visible char of `total` according to a layout pattern.
+ *  Returns offset in EM units relative to the line's center anchor. */
+const layoutCharPosition = (
+  layout: "arc" | "spiral" | "scatter" | "rise" | "constellation",
+  i: number,
+  total: number,
+  charPositions?: { x: number; y: number; rot?: number }[],
+): { x: number; y: number; rot?: number } => {
+  if (layout === "constellation" && charPositions && charPositions[i]) {
+    const p = charPositions[i]!;
+    // viewport % positions reinterpreted as em offsets — scale down so we
+    // don't depend on viewport; treat 100% ~ 8em so chars fit in a band
+    return { x: (p.x - 50) * 0.16, y: (p.y - 50) * 0.16, rot: p.rot };
+  }
+  if (layout === "arc") {
+    // upward semi-circle, total span 6em
+    const t = total > 1 ? i / (total - 1) : 0.5;  // 0..1
+    const angle = (t - 0.5) * Math.PI;            // -π/2..π/2
+    const r = 2.8;                                 // em
+    return { x: Math.sin(angle) * r, y: -Math.abs(Math.cos(angle)) * r * 0.4, rot: angle * 180 / Math.PI * 0.4 };
+  }
+  if (layout === "spiral") {
+    const t = total > 1 ? i / (total - 1) : 0;    // 0..1, 0 outer, 1 inner
+    const angle = t * Math.PI * 3;                 // 1.5 turns
+    const r = 3.5 * (1 - t * 0.85);                // shrinks from 3.5 to 0.5 em
+    return { x: Math.cos(angle) * r, y: Math.sin(angle) * r, rot: angle * 180 / Math.PI };
+  }
+  if (layout === "scatter") {
+    // deterministic-ish scatter using char index hash so re-renders look stable
+    const h1 = Math.sin(i * 12.9898) * 43758.5453;
+    const h2 = Math.sin(i * 78.233) * 12345.678;
+    return { x: (h1 - Math.floor(h1) - 0.5) * 5, y: (h2 - Math.floor(h2) - 0.5) * 2.5 };
+  }
+  return { x: 0, y: 0 };
+};
 
 let _ghostKf = false;
 const ensureGhostKf = (): void => {

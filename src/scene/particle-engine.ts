@@ -282,6 +282,22 @@ export class ParticleEngine {
         }
         const t = p.age / p.duration;
         const pos = computePosition(p, el.motion, t, w, h);
+        // attractor physics — pull toward each attractor with inverse-distance
+        // falloff. Reactivity scales force with audio.
+        if (el.motion.attractors && el.motion.attractors.length) {
+          const reactivity = el.motion.attractors[0] ? (el.motion.attractorReactivity ?? 0) : 0;
+          const audioMul = 1 + audioState.bass * 1.5 * reactivity + audioState.kick * 2 * reactivity;
+          for (const a of el.motion.attractors) {
+            const ax = a.x / 100 * w, ay = a.y / 100 * h;
+            const dx = ax - pos.x, dy = ay - pos.y;
+            const dist2 = dx*dx + dy*dy + 100; // +100 prevents singularity
+            const radius2 = a.radius ? a.radius * a.radius : Infinity;
+            if (dist2 > radius2) continue;
+            const pull = (a.force * audioMul * 12000) / dist2; // px/frame deflection
+            pos.x += dx / Math.sqrt(dist2) * pull * dt;
+            pos.y += dy / Math.sqrt(dist2) * pull * dt;
+          }
+        }
         p.dom.style.transform = `translate(${pos.x - p.size / 2}px, ${pos.y - p.size / 2}px) rotate(${pos.rot}deg)`;
       }
     }
