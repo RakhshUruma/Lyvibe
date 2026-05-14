@@ -175,6 +175,9 @@ export class ShaderBg {
     const gl = (this.gl ??= this.canvas.getContext("webgl", { antialias: false, alpha: true, preserveDrawingBuffer: false })!);
     if (!gl) { console.warn("[shader-bg] WebGL not available"); return; }
     this.feedback = !!spec.feedback;
+    // Make canvas visible BEFORE resize — otherwise clientWidth/Height read
+    // as 0 (display:none from clear()) and we allocate a 0×0 buffer.
+    this.canvas.style.display = "block";
     this.resize();
     this.ensureBlackTex(gl);
     this.ensureSpectrumTex(gl);
