@@ -68,4 +68,16 @@ export type SceneElement = {
   /** Per-instance opacity drawn from this range. */
   opacityRange?: [number, number];
   blendMode?: string;
+
+  /** Animate the SVG path stroke-dashoffset from full → 0 over the
+   *  particle's lifetime, producing a "drawn-by-hand" / neon-sign-lighting
+   *  effect. Requires shape:"svg" with a strokeable path. The shape
+   *  appears as if traced out, then optionally fades. */
+  drawStroke?: boolean;
+  /** How fast the stroke draws, in seconds. Defaults to particle duration.
+   *  Independent of motion duration — lets you draw fast then linger. */
+  drawStrokeDuration?: number;
+  /** "loop": redraw forever; "fade": draw once then fade out; "hold":
+   *  draw once and stay solid (default). */
+  drawStrokeMode?: "loop" | "fade" | "hold";
 };

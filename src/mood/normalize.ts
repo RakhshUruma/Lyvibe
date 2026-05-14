@@ -311,6 +311,9 @@ const normSceneElement = (raw: any): SceneElement | null => {
       ? [Number(raw.opacityRange[0]) || 0.6, Number(raw.opacityRange[1]) || 1]
       : undefined,
     blendMode: typeof raw.blendMode === "string" ? raw.blendMode : undefined,
+    drawStroke: raw.drawStroke === true,
+    drawStrokeDuration: typeof raw.drawStrokeDuration === "number" ? raw.drawStrokeDuration : undefined,
+    drawStrokeMode: ["loop","fade","hold"].includes(raw.drawStrokeMode) ? raw.drawStrokeMode : undefined,
   };
   // sanity: svg without path → emoji fallback so engine doesn't render nothing
   if (out.shape === "svg" && !out.svgPath) {

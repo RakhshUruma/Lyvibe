@@ -24,6 +24,8 @@ type Particle = {
   pathLen?: number;
   /** The inner SVG path element when shape=svg; used for shape morphing. */
   shapePath?: SVGPathElement;
+  /** Total stroke length when drawStroke is enabled (for dashoffset). */
+  strokeLen?: number;
 };
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -78,6 +80,20 @@ const createShape = (el: SceneElement, sizePx: number): HTMLElement => {
     svg.appendChild(path);
     wrap.appendChild(svg);
     (wrap as any).__shapePath = path;
+
+    // Stroke-draw effect: compute total path length, set dasharray=length,
+    // dashoffset=length (fully hidden). The tick loop animates offset → 0.
+    if (el.drawStroke) {
+      // path needs to be in DOM for getTotalLength
+      try {
+        const L = (path as SVGPathElement).getTotalLength();
+        path.setAttribute("stroke-dasharray", String(L));
+        path.setAttribute("stroke-dashoffset", String(L));
+        (wrap as any).__strokeLen = L;
+      } catch {
+        (wrap as any).__strokeLen = 0;
+      }
+    }
   }
   if (el.filter) wrap.style.filter = el.filter;
   return wrap;
@@ -212,6 +228,7 @@ export class ParticleEngine {
       duration: rand(el.motion.durationRange[0], el.motion.durationRange[1]),
       seed, spawnX, spawnY, size, dir,
       shapePath: (dom as any).__shapePath,
+      strokeLen:  (dom as any).__strokeLen,
     };
 
     if (el.motion.type === "path" && el.motion.pathD) {
@@ -281,6 +298,28 @@ export class ParticleEngine {
           continue;
         }
         const t = p.age / p.duration;
+        // stroke-draw progression: dashoffset shrinks from L → 0 over
+        // drawStrokeDuration (or particle duration). Modes:
+        //   "loop": triangle wave (draws then erases, repeats)
+        //   "fade": draw once, opacity fades after completion
+        //   "hold": draw once and stay (default)
+        if (el.drawStroke && p.shapePath && p.strokeLen) {
+          const drawDur = el.drawStrokeDuration ?? p.duration;
+          const drawT = Math.min(1, p.age / drawDur);
+          const mode = el.drawStrokeMode ?? "hold";
+          let progress: number;
+          if (mode === "loop") {
+            const phase = (p.age / drawDur) % 2;
+            progress = phase < 1 ? phase : 2 - phase;
+          } else {
+            progress = drawT;
+          }
+          p.shapePath.setAttribute("stroke-dashoffset", String(p.strokeLen * (1 - progress)));
+          if (mode === "fade" && drawT >= 1) {
+            const fade = Math.max(0, 1 - (p.age - drawDur) / Math.max(0.5, p.duration - drawDur));
+            p.dom.style.opacity = String(fade);
+          }
+        }
         const pos = computePosition(p, el.motion, t, w, h);
         // attractor physics — pull toward each attractor with inverse-distance
         // falloff. Reactivity scales force with audio.
